@@ -48,7 +48,6 @@ dependencies:
   flutter_secure_storage: ^10.3.1
   http: ^1.6.0
   path_provider: ^2.1.6
-  msix: ^3.17.0
 
 dev_dependencies:
   flutter_test:
@@ -60,6 +59,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  msix: ^3.17.0
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -106,14 +107,23 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
 
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/app_logo.png"
+  windows:
+    generate: true
+    image_path: "assets/app_logo.png"
+    icon_size: 256
+
 msix_config:
   display_name: *appName
   publisher_display_name: Homebackend
-  title: tennis_training_tool
+  title: tennis-training-tool
   description: *appDescription
   identity_name: jakhar.neeraj.tennis_training_tool
-  publisher: CN=NetrDevelopment, O=NetrSecurity, C=US
-  logo_path: windows/runner/resources/app_icon.ico 
+  publisher: CN=TennisTrainingApp, O=TennisTrainingApp, C=IN
+  logo_path: assets/app_logo.png
+  capabilities: internetClient, internetClientServer
   architecture: x64
-  capabilities: internetClient, internetClientServer, privateNetworkClientServer
   install_certificate: false
