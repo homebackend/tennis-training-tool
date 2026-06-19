@@ -188,7 +188,7 @@ jobs:
           pkgname=tennis-training-tool
           pkgver=${VERSION}
           pkgrel=1
-          pkgdesc="CCTV camera monitor supporting intranet and remote SSH connections"
+          pkgdesc="A tool to help train tennis for kids and parents alike."
           arch=('x86_64')
           url="https://github.com"
           license=('GPL-3.0-only')
@@ -205,7 +205,7 @@ jobs:
             install -dm755 "\${pkgdir}/usr/share/applications"
             install -m644 "${GITHUB_WORKSPACE}/linux/tennis-training-tool.desktop" "\${pkgdir}/usr/share/applications/tennis-training-tool.desktop"
             install -dm755 "\${pkgdir}/usr/share/pixmaps"
-            install -m644 "${GITHUB_WORKSPACE}/icons/tennis-training-tool.png" "\${pkgdir}/usr/share/pixmaps/tennis-training-tool.png"
+            install -m644 "${GITHUB_WORKSPACE}/assets/app_logo.png" "\${pkgdir}/usr/share/pixmaps/tennis-training-tool.png"
             install -dm755 "\${pkgdir}/usr/share/licenses/\${pkgname}"
             install -m644 "${GITHUB_WORKSPACE}/LICENSE" "\${pkgdir}/usr/share/licenses/\${pkgname}/LICENSE"
           }
@@ -261,13 +261,13 @@ jobs:
           Architecture: amd64
           Depends: libgtk-3-0, xz-utils, mpv
           Maintainer: Neeraj J <neerajcd@gmail.com>
-          Description: CCTV camera monitor supporting intranet and remote SSH connections
+          Description: A tool to help train tennis for kids and parents alike.
           EOF
 
           cp -r build/linux/x64/release/bundle/. "${PKG_DIR}/opt/tennis-training-tool/"
           ln -s /opt/tennis-training-tool/tennis_training_tool "${PKG_DIR}/usr/bin/tennis_training_tool"
           cp linux/tennis-training-tool.desktop "${PKG_DIR}/usr/share/applications/tennis-training-tool.desktop"
-          cp icons/tennis-training-tool.png "${PKG_DIR}/usr/share/pixmaps/tennis-training-tool.png"
+          cp assets/app_logo.png "${PKG_DIR}/usr/share/pixmaps/tennis-training-tool.png"
           cp LICENSE "${PKG_DIR}/usr/share/doc/tennis-training-tool/copyright"
 
           dpkg-deb --build --root-owner-group "${PKG_DIR}"
