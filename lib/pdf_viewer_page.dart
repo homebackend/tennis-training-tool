@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2026 Neeraj Jakhar
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ */
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -433,13 +441,24 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   Widget _buildOutlineItem(PdfOutlineNode node, int activePage) {
     final hasChildren = node.children.isNotEmpty;
     final bool isCurrentlyReading = node.dest?.pageNumber == activePage;
-    final widgetTitle = Text(
-      node.title,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: isCurrentlyReading ? FontWeight.bold : FontWeight.normal,
-        color: isCurrentlyReading ? Colors.blue.shade700 : Colors.black87,
-      ),
+    final widgetTitle = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            node.title,
+            softWrap: true,
+            overflow: TextOverflow.visible,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isCurrentlyReading
+                  ? FontWeight.bold
+                  : FontWeight.normal,
+              color: isCurrentlyReading ? Colors.blue.shade700 : Colors.black87,
+            ),
+          ),
+        ),
+      ],
     );
     if (!hasChildren) {
       return Material(
