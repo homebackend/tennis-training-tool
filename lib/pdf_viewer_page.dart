@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2026 Neeraj Jakhar
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ */
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -148,24 +156,19 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   }
 
   Future<Uint8List> _decryptBytes(Uint8List data, String password) async {
-    final salt = data.sublist(0, 16); // Bytes 0 to 15
-    final nonce = data.sublist(16, 28); // Bytes 16 to 27
-    final macBytes = data.sublist(28, 44); // Bytes 28 to 43 (The MAC tag)
-    final ct = data.sublist(44); // Bytes 44 to the end (Ciphertext)
+    final salt = data.sublist(0, 16);
+    final nonce = data.sublist(16, 28);
+    final macBytes = data.sublist(28, 44);
+    final ct = data.sublist(44);
 
     final derived = await Pbkdf2.hmacSha256(
       iterations: 10000,
       bits: 256,
     ).deriveKey(secretKey: SecretKey(utf8.encode(password)), nonce: salt);
 
-    // Pass the real authentication parameters instead of Mac.empty
     return Uint8List.fromList(
       await AesGcm.with256bits().decrypt(
-        SecretBox(
-          ct,
-          nonce: nonce,
-          mac: Mac(macBytes), // Provide the extracted validation key
-        ),
+        SecretBox(ct, nonce: nonce, mac: Mac(macBytes)),
         secretKey: derived,
       ),
     );
@@ -188,7 +191,6 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
       final String jsonString = json.encode(configMap);
       final Uint8List fileBytes = Uint8List.fromList(utf8.encode(jsonString));
 
-      // ✅ FIXED: Removed .platform to call the static class method directly
       final String? outputPath = await FilePicker.saveFile(
         dialogTitle: 'Export App Settings',
         fileName: 'tennis_tool_settings.json',
@@ -209,7 +211,6 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
 
   Future<void> _importPreferences() async {
     try {
-      // ✅ FIXED: Removed .platform to call the static class method directly
       final FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
@@ -433,13 +434,24 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   Widget _buildOutlineItem(PdfOutlineNode node, int activePage) {
     final hasChildren = node.children.isNotEmpty;
     final bool isCurrentlyReading = node.dest?.pageNumber == activePage;
-    final widgetTitle = Text(
-      node.title,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: isCurrentlyReading ? FontWeight.bold : FontWeight.normal,
-        color: isCurrentlyReading ? Colors.blue.shade700 : Colors.black87,
-      ),
+    final widgetTitle = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            node.title,
+            softWrap: true,
+            overflow: TextOverflow.visible,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isCurrentlyReading
+                  ? FontWeight.bold
+                  : FontWeight.normal,
+              color: isCurrentlyReading ? Colors.blue.shade700 : Colors.black87,
+            ),
+          ),
+        ),
+      ],
     );
     if (!hasChildren) {
       return Material(
