@@ -121,7 +121,7 @@ msix_config:
   publisher_display_name: Homebackend
   title: tennis-training-tool
   description: *appDescription
-  identity_name: jakhar.neeraj.tennis_training_tool
+  identity_name: jakhar.neeraj.tennis-training-tool
   publisher: CN=TennisTrainingApp, O=TennisTrainingApp, C=IN
   logo_path: assets/app_logo.png
   capabilities: internetClient, internetClientServer
