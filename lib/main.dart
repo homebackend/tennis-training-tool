@@ -13,9 +13,10 @@ Future<void> main() async {
   JustAudioMediaKit.ensureInitialized();
 
   await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.tennis.training.audio',
+    androidNotificationChannelId: 'homebackend.tennis.training.audio',
     androidNotificationChannelName: 'Tennis Audio Playback',
     androidNotificationOngoing: true,
+    androidNotificationIcon: 'ic_bg_audio_icon',
   );
 
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
