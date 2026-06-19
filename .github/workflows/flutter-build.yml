@@ -31,15 +31,15 @@ jobs:
               build/app/outputs/bundle/release/app-release.aab
           - target: web
             os: ubuntu-latest
-            upload_paths: "tennis_training_tool-web.zip"
+            upload_paths: "tennis-training-tool-web.zip"
           - target: linux
             os: ubuntu-latest
-            upload_paths: "tennis_training_tool-linux-x64.tar.gz"
+            upload_paths: "tennis-training-tool-linux-x64.tar.gz"
           - target: windows
             os: windows-latest
             upload_paths: |
-              tennis_training_tool-windows-x64.zip
-              build/windows/x64/runner/Release/tennis_training_tool-windows-x64.msix
+              tennis-training-tool-windows-x64.zip
+              build/windows/x64/runner/Release/tennis-training-tool-windows-x64.msix
 
     steps:
       - name: Checkout Code
@@ -97,6 +97,18 @@ jobs:
       - name: Build Android App Bundle
         if: matrix.target == 'apk'
         run: flutter build appbundle --release
+
+      - name: Rename executable (windows)
+        if: matrix.target == 'windows'
+        run: |
+          mv "build/windows/x64/runner/Release/tennis_training_tool.exe" \
+             "build/windows/x64/runner/Release/tennis-training-tool.exe"
+
+      - name: Rename executable (linux)
+        if: matrix.target == 'linux'
+        run: |
+          mv "build/linux/x64/release/tennis_training_tool" \
+             "build/linux/x64/release/tennis-training-tool"
         
       - name: Compile Windows MSIX Installer
         if: matrix.target == 'windows'
@@ -105,7 +117,8 @@ jobs:
       - name: Rename msix file to contain architecture
         if: matrix.target == 'windows'
         run: |
-          mv "build/windows/x64/runner/Release/tennis_training_tool.msix" "build/windows/x64/runner/Release/tennis_training_tool-windows-x64.msix"
+          mv "build/windows/x64/runner/Release/tennis_training_tool.msix" \
+             "build/windows/x64/runner/Release/tennis-training-tool-windows-x64.msix"
 
       - name: Sign Android APK
         if: matrix.target == 'apk'
@@ -123,25 +136,27 @@ jobs:
       - name: Overwrite Unsigned APK with Signed APK
         if: matrix.target == 'apk'
         run: |
-          mv "${{ steps.sign_android_apk.outputs.signedReleaseFile }}" build/app/outputs/flutter-apk/app-release.apk
+          mv "${{ steps.sign_android_apk.outputs.signedReleaseFile }}" \
+             build/app/outputs/flutter-apk/app-release.apk
 
       - name: Package Linux Target
         if: matrix.target == 'linux'
         run: |
           cd build/linux/x64/release/
-          tar -czf ../../../../tennis_training_tool-linux-x64.tar.gz bundle/
+          tar -czf ../../../../tennis-training-tool-linux-x64.tar.gz bundle/
 
       - name: Package Web Target
         if: matrix.target == 'web'
         run: |
           cd build
-          zip -r ../tennis_training_tool-web.zip web/
+          zip -r ../tennis-training-tool-web.zip web/
 
       - name: Package Windows Target
         if: matrix.target == 'windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath tennis_training_tool-windows-x64.zip
+          Compress-Archive -Path build/windows/x64/runner/Release/* \
+                           -DestinationPath tennis-training-tool-windows-x64.zip
 
       - name: Upload Raw Linux Bundle for Arch Packaging
         if: matrix.target == 'linux'
@@ -201,7 +216,7 @@ jobs:
             chmod +x "${GITHUB_WORKSPACE}/build/linux/x64/release/bundle/lib/libflutter_linux_gtk.so"
             cp -r "${GITHUB_WORKSPACE}/build/linux/x64/release/bundle/." "\${pkgdir}/opt/tennis-training-tool/"
             install -dm755 "\${pkgdir}/usr/bin"
-            ln -s "/opt/tennis-training-tool/tennis_training_tool" "\${pkgdir}/usr/bin/tennis_training_tool"
+            ln -s "/opt/tennis-training-tool/tennis-training-tool" "\${pkgdir}/usr/bin/tennis-training-tool"
             install -dm755 "\${pkgdir}/usr/share/applications"
             install -m644 "${GITHUB_WORKSPACE}/linux/tennis-training-tool.desktop" "\${pkgdir}/usr/share/applications/tennis-training-tool.desktop"
             install -dm755 "\${pkgdir}/usr/share/pixmaps"
@@ -228,7 +243,8 @@ jobs:
       - name: Prepare Arch Package
         if: matrix.target == 'arch'
         run: |
-          mv tennis_training_tool-${{ needs.build-apps.outputs.app_version }}-1-x86_64.pkg.tar.zst tennis_training_tool-linux-x64.pkg.tar.zst
+          mv tennis-training-tool-${{ needs.build-apps.outputs.app_version }}-1-x86_64.pkg.tar.zst \
+             tennis-training-tool-linux-x64.pkg.tar.zst
 
       - name: Setup Debian/Ubuntu Dependencies
         if: matrix.target == 'debian'
@@ -237,14 +253,14 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends dpkg-dev debhelper binutils gnupg debsigs ca-certificates
-          chmod +x build/linux/x64/release/bundle/tennis_training_tool
+          chmod +x build/linux/x64/release/bundle/tennis-training-tool
           chmod +x build/linux/x64/release/bundle/lib/libflutter_linux_gtk.so
 
       - name: Generate Debian Package Hierarchy
         if: matrix.target == 'debian'
         run: |
           VERSION="${{ needs.build-apps.outputs.app_version }}"
-          PKG_DIR="tennis_training_tool_${VERSION}-1_amd64"
+          PKG_DIR="tennis-training-tool-${VERSION}-1-amd64"
           
           mkdir -p "${PKG_DIR}/DEBIAN"
           mkdir -p "${PKG_DIR}/opt/tennis-training-tool"
@@ -265,13 +281,13 @@ jobs:
           EOF
 
           cp -r build/linux/x64/release/bundle/. "${PKG_DIR}/opt/tennis-training-tool/"
-          ln -s /opt/tennis-training-tool/tennis_training_tool "${PKG_DIR}/usr/bin/tennis_training_tool"
+          ln -s /opt/tennis-training-tool/tennis-training-tool "${PKG_DIR}/usr/bin/tennis-training-tool"
           cp linux/tennis-training-tool.desktop "${PKG_DIR}/usr/share/applications/tennis-training-tool.desktop"
           cp assets/app_logo.png "${PKG_DIR}/usr/share/pixmaps/tennis-training-tool.png"
           cp LICENSE "${PKG_DIR}/usr/share/doc/tennis-training-tool/copyright"
 
           dpkg-deb --build --root-owner-group "${PKG_DIR}"
-          mv "${PKG_DIR}.deb" tennis_training_tool-linux-x64.deb
+          mv "${PKG_DIR}.deb" tennis-training-tool-linux-x64.deb
 
       - name: Sign Package File
         env:
@@ -280,19 +296,21 @@ jobs:
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
 
           if [ "${{ matrix.target }}" = "arch" ]; then
-            gpg --batch --detach-sign --output tennis_training_tool-linux-x64.pkg.tar.zst.sig tennis_training_tool-linux-x64.pkg.tar.zst
+            gpg --batch --detach-sign --output tennis-training-tool-linux-x64.pkg.tar.zst.sig \
+                                               tennis-training-tool-linux-x64.pkg.tar.zst
           elif [ "${{ matrix.target }}" = "debian" ]; then
-            gpg --batch --detach-sign --output tennis_training_tool-linux-x64.deb.sig tennis_training_tool-linux-x64.deb
+            gpg --batch --detach-sign --output tennis-training-tool-linux-x64.deb.sig \
+                                               tennis-training-tool-linux-x64.deb
           fi
       - name: Upload Package Artifacts
         uses: actions/upload-artifact@v6
         with:
           name: base-${{ matrix.target }}-artifacts
           path: |
-            tennis_training_tool-linux-x64.pkg.tar.zst
-            tennis_training_tool-linux-x64.pkg.tar.zst.sig
-            tennis_training_tool-linux-x64.deb
-            tennis_training_tool-linux-x64.deb.sig
+            tennis-training-tool-linux-x64.pkg.tar.zst
+            tennis-training-tool-linux-x64.pkg.tar.zst.sig
+            tennis-training-tool-linux-x64.deb
+            tennis-training-tool-linux-x64.deb.sig
           if-no-files-found: ignore
 
   create-release:
@@ -338,14 +356,14 @@ jobs:
           mkdir -p ./release-assets
           find ./artifacts \( -name "app-release.apk" -o \
                               -name "app-release.aab" -o \
-                              -name "tennis_training_tool-web.zip" -o \
-                              -name "tennis_training_tool-linux-x64.tar.gz" -o \
-                              -name "tennis_training_tool-linux-x64.pkg.tar.zst" -o \
-                              -name "tennis_training_tool-linux-x64.pkg.tar.zst.sig" -o \
-                              -name "tennis_training_tool-linux-x64.deb" -o \
-                              -name "tennis_training_tool-linux-x64.deb.sig" -o \
-                              -name "tennis_training_tool-windows-x64.zip" -o \
-                              -name "tennis_training_tool.msix" \) \
+                              -name "tennis-training-tool-web.zip" -o \
+                              -name "tennis-training-tool-linux-x64.tar.gz" -o \
+                              -name "tennis-training-tool-linux-x64.pkg.tar.zst" -o \
+                              -name "tennis-training-tool-linux-x64.pkg.tar.zst.sig" -o \
+                              -name "tennis-training-tool-linux-x64.deb" -o \
+                              -name "tennis-training-tool-linux-x64.deb.sig" -o \
+                              -name "tennis-training-tool-windows-x64.zip" -o \
+                              -name "tennis-training-tool.msix" \) \
                               -exec cp {} ./release-assets/ \;
 
       - name: Create GitHub Release
