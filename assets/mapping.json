@@ -1,0 +1,34 @@
+[
+    {
+        "file": "assets/audio/cardio_blast.mp3",
+        "display": "Cardio Blast"
+    },
+    {
+        "file": "assets/audio/downward_dog_1m.mp3",
+        "display": "Downward Dog (1m)"
+    },
+    {
+        "file": "assets/audio/exercise_30s.mp3",
+        "display": "Exercise (30s)"
+    },
+    {
+        "file": "assets/audio/exercise_45s.mp3",
+        "display": "Exercise (45s)"
+    },
+    {
+        "file": "assets/audio/official_beep_test.mp3",
+        "display": "Beep Test"
+    },
+    {
+        "file": "assets/audio/pigeon_pose_2m.mp3",
+        "display": "Pigeon Pose (2m)"
+    },
+    {
+        "file": "assets/audio/strength_daily.mp3",
+        "display": "Strength: Daily"
+    },
+    {
+        "file": "assets/audio/tennis_6m.mp3",
+        "display": "Tennis (6m)"
+    }
+]

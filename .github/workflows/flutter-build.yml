@@ -1,0 +1,358 @@
+name: Build and Release Flutter Multi-Platform App
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "pubspec.yaml"
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apps:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    outputs:
+      app_version: ${{ steps.version-collector.outputs.VERSION }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [apk, web, linux, windows]
+        include:
+          - target: apk
+            os: ubuntu-latest
+            upload_paths: |
+              build/app/outputs/flutter-apk/app-release.apk
+              build/app/outputs/bundle/release/app-release.aab
+          - target: web
+            os: ubuntu-latest
+            upload_paths: "tennis_training_tool-web.zip"
+          - target: linux
+            os: ubuntu-latest
+            upload_paths: "tennis_training_tool-linux-x64.tar.gz"
+          - target: windows
+            os: windows-latest
+            upload_paths: |
+              tennis_training_tool-windows-x64.zip
+              build/windows/x64/runner/Release/tennis_training_tool-windows-x64.msix
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK (Android Only)
+        if: matrix.target == 'apk'
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install Linux Build Dependencies (Linux Only)
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libmpv-dev \
+            mpv \
+            pkg-config \
+            libgtk-3-dev \
+            libsecret-1-dev \
+            libjsoncpp-dev
+
+      - name: Enable Windows System Developer Mode
+        if: matrix.target == 'windows'
+        run: |
+          New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" `
+          -Name "AllowDevelopmentWithoutDevLicense" -PropertyType DWORD -Value 1 -Force
+
+      - name: Set up Flutter Engine
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Extract Version from pubspec.yaml
+        id: version-collector
+        if: matrix.target == 'linux'
+        shell: bash
+        run: |
+          VERSION=$(grep '^version: ' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1 | tr -d '[:space:]')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build Flutter Target (${{ matrix.target }})
+        shell: bash
+        run: |
+          flutter build ${{ matrix.target }} --release --no-pub \
+            --dart-define=GH_OWNER=$GITHUB_REPOSITORY_OWNER \
+            --dart-define=GH_REPO=${GITHUB_REPOSITORY#*/}
+
+      - name: Build Android App Bundle
+        if: matrix.target == 'apk'
+        run: flutter build appbundle --release
+        
+      - name: Compile Windows MSIX Installer
+        if: matrix.target == 'windows'
+        run: flutter pub run msix:create
+
+      - name: Rename msix file to contain architecture
+        if: matrix.target == 'windows'
+        run: |
+          mv "build/windows/x64/runner/Release/tennis_training_tool.msix" "build/windows/x64/runner/Release/tennis_training_tool-windows-x64.msix"
+
+      - name: Sign Android APK
+        if: matrix.target == 'apk'
+        uses: r0adkll/sign-android-release@v1
+        id: sign_android_apk
+        with:
+          releaseDirectory: build/app/outputs/flutter-apk
+          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_KEY }}
+          alias: ${{ secrets.ANDROID_ALIAS }}
+          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"  
+
+      - name: Overwrite Unsigned APK with Signed APK
+        if: matrix.target == 'apk'
+        run: |
+          mv "${{ steps.sign_android_apk.outputs.signedReleaseFile }}" build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Package Linux Target
+        if: matrix.target == 'linux'
+        run: |
+          cd build/linux/x64/release/
+          tar -czf ../../../../tennis_training_tool-linux-x64.tar.gz bundle/
+
+      - name: Package Web Target
+        if: matrix.target == 'web'
+        run: |
+          cd build
+          zip -r ../tennis_training_tool-web.zip web/
+
+      - name: Package Windows Target
+        if: matrix.target == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath tennis_training_tool-windows-x64.zip
+
+      - name: Upload Raw Linux Bundle for Arch Packaging
+        if: matrix.target == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-linux-bundle
+          path: build/linux/x64/release/bundle/
+
+      - name: Upload Finished Production Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: base-${{ matrix.target }}-artifacts
+          path: ${{ matrix.upload_paths }}
+
+  build-linux-packages:
+    name: Build Downstream Package (${{ matrix.target }})
+    needs: build-apps
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [arch, debian]
+        include:
+          - target: arch
+            container_image: "archlinux:latest"
+          - target: debian
+            container_image: "ubuntu:latest"
+    container:
+      image: ${{ matrix.container_image }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Download Raw Linux Bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: raw-linux-bundle
+          path: build/linux/x64/release/bundle/
+
+      - name: Generate Arch Linux PKGBUILD
+        if: matrix.target == 'arch'
+        run: |
+          VERSION="${{ needs.build-apps.outputs.app_version }}"
+          cat <<EOF > PKGBUILD
+          pkgname=netr
+          pkgver=${VERSION}
+          pkgrel=1
+          pkgdesc="CCTV camera monitor supporting intranet and remote SSH connections"
+          arch=('x86_64')
+          url="https://github.com"
+          license=('GPL-3.0-only')
+          depends=('gtk3' 'xz' 'mpv')
+          source=()
+
+          package() {
+            install -dm755 "\${pkgdir}/opt/netr"
+            chmod +x "${GITHUB_WORKSPACE}/build/linux/x64/release/bundle/netr"
+            chmod +x "${GITHUB_WORKSPACE}/build/linux/x64/release/bundle/lib/libflutter_linux_gtk.so"
+            cp -r "${GITHUB_WORKSPACE}/build/linux/x64/release/bundle/." "\${pkgdir}/opt/netr/"
+            install -dm755 "\${pkgdir}/usr/bin"
+            ln -s "/opt/netr/netr" "\${pkgdir}/usr/bin/netr"
+            install -dm755 "\${pkgdir}/usr/share/applications"
+            install -m644 "${GITHUB_WORKSPACE}/linux/netr.desktop" "\${pkgdir}/usr/share/applications/netr.desktop"
+            install -dm755 "\${pkgdir}/usr/share/pixmaps"
+            install -m644 "${GITHUB_WORKSPACE}/icons/netr.png" "\${pkgdir}/usr/share/pixmaps/netr.png"
+            install -dm755 "\${pkgdir}/usr/share/licenses/\${pkgname}"
+            install -m644 "${GITHUB_WORKSPACE}/LICENSE" "\${pkgdir}/usr/share/licenses/\${pkgname}/LICENSE"
+          }
+          EOF
+
+      - name: Setup Arch Compiler Dependencies
+        if: matrix.target == 'arch'
+        run: |
+          pacman -Sy --noconfirm
+          pacman -S --noconfirm --needed base-devel binutils sudo gnupg
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown -R builder:builder $GITHUB_WORKSPACE
+
+      - name: Compile Arch Package
+        if: matrix.target == 'arch'
+        run: |
+          su builder -c "makepkg -s --noconfirm"
+
+      - name: Prepare Arch Package
+        if: matrix.target == 'arch'
+        run: |
+          mv netr-${{ needs.build-apps.outputs.app_version }}-1-x86_64.pkg.tar.zst netr-linux-x64.pkg.tar.zst
+
+      - name: Setup Debian/Ubuntu Dependencies
+        if: matrix.target == 'debian'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends dpkg-dev debhelper binutils gnupg debsigs ca-certificates
+          chmod +x build/linux/x64/release/bundle/netr
+          chmod +x build/linux/x64/release/bundle/lib/libflutter_linux_gtk.so
+
+      - name: Generate Debian Package Hierarchy
+        if: matrix.target == 'debian'
+        run: |
+          VERSION="${{ needs.build-apps.outputs.app_version }}"
+          PKG_DIR="netr_${VERSION}-1_amd64"
+          
+          mkdir -p "${PKG_DIR}/DEBIAN"
+          mkdir -p "${PKG_DIR}/opt/netr"
+          mkdir -p "${PKG_DIR}/usr/bin"
+          mkdir -p "${PKG_DIR}/usr/share/applications"
+          mkdir -p "${PKG_DIR}/usr/share/pixmaps"
+          mkdir -p "${PKG_DIR}/usr/share/doc/netr"
+
+          cat <<EOF > "${PKG_DIR}/DEBIAN/control"
+          Package: netr
+          Version: ${VERSION}-1
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Depends: libgtk-3-0, xz-utils, mpv
+          Maintainer: Neeraj J <neerajcd@gmail.com>
+          Description: CCTV camera monitor supporting intranet and remote SSH connections
+          EOF
+
+          cp -r build/linux/x64/release/bundle/. "${PKG_DIR}/opt/netr/"
+          ln -s /opt/netr/netr "${PKG_DIR}/usr/bin/netr"
+          cp linux/netr.desktop "${PKG_DIR}/usr/share/applications/netr.desktop"
+          cp icons/netr.png "${PKG_DIR}/usr/share/pixmaps/netr.png"
+          cp LICENSE "${PKG_DIR}/usr/share/doc/netr/copyright"
+
+          dpkg-deb --build --root-owner-group "${PKG_DIR}"
+          mv "${PKG_DIR}.deb" netr-linux-x64.deb
+
+      - name: Sign Package File
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+          if [ "${{ matrix.target }}" = "arch" ]; then
+            gpg --batch --detach-sign --output netr-linux-x64.pkg.tar.zst.sig netr-linux-x64.pkg.tar.zst
+          elif [ "${{ matrix.target }}" = "debian" ]; then
+            gpg --batch --detach-sign --output netr-linux-x64.deb.sig netr-linux-x64.deb
+          fi
+      - name: Upload Package Artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: base-${{ matrix.target }}-artifacts
+          path: |
+            netr-linux-x64.pkg.tar.zst
+            netr-linux-x64.pkg.tar.zst.sig
+            netr-linux-x64.deb
+            netr-linux-x64.deb.sig
+          if-no-files-found: ignore
+
+  create-release:
+    name: Publish Production GitHub Release
+    if: github.event_name != 'pull_request'
+    needs: [build-apps, build-linux-packages]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Tag Status
+        id: tag-check
+        run: |
+          TAG_NAME="v${{ needs.build-apps.outputs.app_version }}"
+          if git ls-remote --tags origin | grep -q "refs/tags/${TAG_NAME}$"; then
+            echo "TAG_EXISTS=true" >> $GITHUB_OUTPUT
+            echo "Release for $TAG_NAME already exists. Halting execution gracefully."
+          else
+            echo "TAG_EXISTS=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Guard Against Duplicate Builds
+        if: steps.tag-check.outputs.TAG_EXISTS == 'true'
+        run: |
+          echo "Version v${{ needs.build-apps.outputs.app_version }} already published. Exiting cleanly."
+          exit 0
+
+      - name: Create and Push Secure Git Tag via REST API
+        run: |
+          TAG_NAME="v${{ needs.build-apps.outputs.app_version }}"
+
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/git/refs \
+            -d "{\"ref\": \"refs/tags/$TAG_NAME\", \"sha\": \"${{ github.sha }}\"}"
+
+      - name: Download All Production Artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: ./artifacts
+
+      - name: Organize Files for Upload
+        run: |
+          mkdir -p ./release-assets
+          find ./artifacts \( -name "app-release.apk" -o \
+                              -name "app-release.aab" -o \
+                              -name "tennis_training_tool-web.zip" -o \
+                              -name "tennis_training_tool-linux-x64.tar.gz" -o \
+                              -name "tennis_training_tool-linux-x64.pkg.tar.zst" -o \
+                              -name "tennis_training_tool-linux-x64.pkg.tar.zst.sig" -o \
+                              -name "tennis_training_tool-linux-x64.deb" -o \
+                              -name "tennis_training_tool-linux-x64.deb.sig" -o \
+                              -name "tennis_training_tool-windows-x64.zip" -o \
+                              -name "tennis_training_tool.msix" \) \
+                              -exec cp {} ./release-assets/ \;
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build-apps.outputs.app_version }}
+          name: Release v${{ needs.build-apps.outputs.app_version }}
+          draft: false
+          prerelease: false
+          files: ./release-assets/*
