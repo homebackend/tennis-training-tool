@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Type=Application
+Name=Tennis Training Tool
+GenericName=A tool to help train tennis
+Comment=A tool to help train tennis for kids and parents alike.
+Icon=tennis-training-tool
+Exec=tennis-training-tool %f
+Terminal=false
+StartupNotify=true
+StartupWMClass=tennis_training_tool
+Categories=Office;AudioVideo;Player;
+MimeType=application/pdf;application/json;
+Keywords=Tennis;Training;PDF;Player;Audio;Drills;
