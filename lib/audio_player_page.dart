@@ -164,8 +164,24 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
               _audioPlayer.position - const Duration(seconds: 10),
             ),
           ),
-          Text(
-            "${_audioPlayer.position.toString().split('.').first} / ${_audioPlayer.duration?.toString().split('.').first ?? '0:00:00'}",
+          StreamBuilder<Duration>(
+            stream: _audioPlayer.createPositionStream(
+              steps: 20,
+              minPeriod: const Duration(milliseconds: 200),
+              maxPeriod: const Duration(milliseconds: 500),
+            ),
+            builder: (context, snapshot) {
+              final position = snapshot.data ?? _audioPlayer.position;
+              final duration = _audioPlayer.duration ?? Duration.zero;
+
+              return Text(
+                "${position.toString().split('.').first} / ${duration.toString().split('.').first}",
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'monospace',
+                ),
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.forward_10),

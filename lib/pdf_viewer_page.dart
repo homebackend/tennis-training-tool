@@ -133,15 +133,25 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
         headers: {if (etag.isNotEmpty) 'If-None-Match': etag},
       );
 
-      if (resp.statusCode == 304 && _localDecryptedPath != null) return;
+      if (resp.statusCode == 304) {
+        final cachedLocalPath = prefs.getString('last_picked_local_path');
+        if (cachedLocalPath != null && await File(cachedLocalPath).exists()) {
+          setState(() {
+            _localDecryptedPath = cachedLocalPath;
+          });
+          return;
+        }
+      }
+
       if (resp.statusCode == 200) {
         final file = File(
           '${(await getApplicationDocumentsDirectory()).path}/playbook.pdf',
         );
         await file.writeAsBytes(await _decryptBytes(resp.bodyBytes, password));
+        await prefs.setString('last_picked_local_path', file.path);
         await prefs.setString(
           'pdf_network_etag',
-          resp.headers['etag'] ?? 'valid',
+          resp.headers['etag'] ?? resp.headers['last-modified'] ?? 'valid',
         );
         setState(() {
           _localDecryptedPath = file.path;
