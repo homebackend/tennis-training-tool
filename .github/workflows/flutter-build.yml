@@ -185,7 +185,7 @@ jobs:
         run: |
           VERSION="${{ needs.build-apps.outputs.app_version }}"
           cat <<EOF > PKGBUILD
-          pkgname=netr
+          pkgname=tennis-training-tool
           pkgver=${VERSION}
           pkgrel=1
           pkgdesc="CCTV camera monitor supporting intranet and remote SSH connections"
@@ -196,16 +196,16 @@ jobs:
           source=()
 
           package() {
-            install -dm755 "\${pkgdir}/opt/netr"
-            chmod +x "${GITHUB_WORKSPACE}/build/linux/x64/release/bundle/netr"
+            install -dm755 "\${pkgdir}/opt/tennis-training-tool"
+            chmod +x "${GITHUB_WORKSPACE}/build/linux/x64/release/bundle/tennis-training-tool"
             chmod +x "${GITHUB_WORKSPACE}/build/linux/x64/release/bundle/lib/libflutter_linux_gtk.so"
-            cp -r "${GITHUB_WORKSPACE}/build/linux/x64/release/bundle/." "\${pkgdir}/opt/netr/"
+            cp -r "${GITHUB_WORKSPACE}/build/linux/x64/release/bundle/." "\${pkgdir}/opt/tennis-training-tool/"
             install -dm755 "\${pkgdir}/usr/bin"
-            ln -s "/opt/netr/netr" "\${pkgdir}/usr/bin/netr"
+            ln -s "/opt/tennis-training-tool/tennis_training_tool" "\${pkgdir}/usr/bin/tennis_training_tool"
             install -dm755 "\${pkgdir}/usr/share/applications"
-            install -m644 "${GITHUB_WORKSPACE}/linux/netr.desktop" "\${pkgdir}/usr/share/applications/netr.desktop"
+            install -m644 "${GITHUB_WORKSPACE}/linux/tennis-training-tool.desktop" "\${pkgdir}/usr/share/applications/tennis-training-tool.desktop"
             install -dm755 "\${pkgdir}/usr/share/pixmaps"
-            install -m644 "${GITHUB_WORKSPACE}/icons/netr.png" "\${pkgdir}/usr/share/pixmaps/netr.png"
+            install -m644 "${GITHUB_WORKSPACE}/icons/tennis-training-tool.png" "\${pkgdir}/usr/share/pixmaps/tennis-training-tool.png"
             install -dm755 "\${pkgdir}/usr/share/licenses/\${pkgname}"
             install -m644 "${GITHUB_WORKSPACE}/LICENSE" "\${pkgdir}/usr/share/licenses/\${pkgname}/LICENSE"
           }
@@ -228,7 +228,7 @@ jobs:
       - name: Prepare Arch Package
         if: matrix.target == 'arch'
         run: |
-          mv netr-${{ needs.build-apps.outputs.app_version }}-1-x86_64.pkg.tar.zst netr-linux-x64.pkg.tar.zst
+          mv tennis_training_tool-${{ needs.build-apps.outputs.app_version }}-1-x86_64.pkg.tar.zst tennis_training_tool-linux-x64.pkg.tar.zst
 
       - name: Setup Debian/Ubuntu Dependencies
         if: matrix.target == 'debian'
@@ -237,24 +237,24 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends dpkg-dev debhelper binutils gnupg debsigs ca-certificates
-          chmod +x build/linux/x64/release/bundle/netr
+          chmod +x build/linux/x64/release/bundle/tennis_training_tool
           chmod +x build/linux/x64/release/bundle/lib/libflutter_linux_gtk.so
 
       - name: Generate Debian Package Hierarchy
         if: matrix.target == 'debian'
         run: |
           VERSION="${{ needs.build-apps.outputs.app_version }}"
-          PKG_DIR="netr_${VERSION}-1_amd64"
+          PKG_DIR="tennis_training_tool_${VERSION}-1_amd64"
           
           mkdir -p "${PKG_DIR}/DEBIAN"
-          mkdir -p "${PKG_DIR}/opt/netr"
+          mkdir -p "${PKG_DIR}/opt/tennis-training-tool"
           mkdir -p "${PKG_DIR}/usr/bin"
           mkdir -p "${PKG_DIR}/usr/share/applications"
           mkdir -p "${PKG_DIR}/usr/share/pixmaps"
-          mkdir -p "${PKG_DIR}/usr/share/doc/netr"
+          mkdir -p "${PKG_DIR}/usr/share/doc/tennis-training-tool"
 
           cat <<EOF > "${PKG_DIR}/DEBIAN/control"
-          Package: netr
+          Package: tennis-training-tool
           Version: ${VERSION}-1
           Section: utils
           Priority: optional
@@ -264,14 +264,14 @@ jobs:
           Description: CCTV camera monitor supporting intranet and remote SSH connections
           EOF
 
-          cp -r build/linux/x64/release/bundle/. "${PKG_DIR}/opt/netr/"
-          ln -s /opt/netr/netr "${PKG_DIR}/usr/bin/netr"
-          cp linux/netr.desktop "${PKG_DIR}/usr/share/applications/netr.desktop"
-          cp icons/netr.png "${PKG_DIR}/usr/share/pixmaps/netr.png"
-          cp LICENSE "${PKG_DIR}/usr/share/doc/netr/copyright"
+          cp -r build/linux/x64/release/bundle/. "${PKG_DIR}/opt/tennis-training-tool/"
+          ln -s /opt/tennis-training-tool/tennis_training_tool "${PKG_DIR}/usr/bin/tennis_training_tool"
+          cp linux/tennis-training-tool.desktop "${PKG_DIR}/usr/share/applications/tennis-training-tool.desktop"
+          cp icons/tennis-training-tool.png "${PKG_DIR}/usr/share/pixmaps/tennis-training-tool.png"
+          cp LICENSE "${PKG_DIR}/usr/share/doc/tennis-training-tool/copyright"
 
           dpkg-deb --build --root-owner-group "${PKG_DIR}"
-          mv "${PKG_DIR}.deb" netr-linux-x64.deb
+          mv "${PKG_DIR}.deb" tennis_training_tool-linux-x64.deb
 
       - name: Sign Package File
         env:
@@ -280,19 +280,19 @@ jobs:
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
 
           if [ "${{ matrix.target }}" = "arch" ]; then
-            gpg --batch --detach-sign --output netr-linux-x64.pkg.tar.zst.sig netr-linux-x64.pkg.tar.zst
+            gpg --batch --detach-sign --output tennis_training_tool-linux-x64.pkg.tar.zst.sig tennis_training_tool-linux-x64.pkg.tar.zst
           elif [ "${{ matrix.target }}" = "debian" ]; then
-            gpg --batch --detach-sign --output netr-linux-x64.deb.sig netr-linux-x64.deb
+            gpg --batch --detach-sign --output tennis_training_tool-linux-x64.deb.sig tennis_training_tool-linux-x64.deb
           fi
       - name: Upload Package Artifacts
         uses: actions/upload-artifact@v6
         with:
           name: base-${{ matrix.target }}-artifacts
           path: |
-            netr-linux-x64.pkg.tar.zst
-            netr-linux-x64.pkg.tar.zst.sig
-            netr-linux-x64.deb
-            netr-linux-x64.deb.sig
+            tennis_training_tool-linux-x64.pkg.tar.zst
+            tennis_training_tool-linux-x64.pkg.tar.zst.sig
+            tennis_training_tool-linux-x64.deb
+            tennis_training_tool-linux-x64.deb.sig
           if-no-files-found: ignore
 
   create-release:
