@@ -33,7 +33,6 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
   }
 
   void _setupAudioEventListeners() {
-    // Stop playback immediately at track end (prevents repeat or auto-advance)
     _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
         _audioPlayer.stop();
@@ -60,15 +59,12 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
     } else {
       await _audioPlayer.stop();
 
-      // Load local asset bundle and pipe metadata to lock screen system
       final audioSource = AudioSource.asset(
         fileAssetPath,
         tag: MediaItem(
           id: fileAssetPath,
           album: "Local Audio Library",
           title: item['display'],
-          // Optional: Add a local artwork image asset for the lock screen background
-          // artUri: Uri.parse('asset:///assets/lockscreen_art.png'),
         ),
       );
 
@@ -149,7 +145,6 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
               },
             ),
           ),
-          // Persistent Bottom Mini-Controller for seek controls
           if (_currentPlayingFile != null) _buildMiniController(),
         ],
       ),
