@@ -107,8 +107,8 @@ jobs:
       - name: Rename executable (linux)
         if: matrix.target == 'linux'
         run: |
-          mv "build/linux/x64/release/tennis_training_tool" \
-             "build/linux/x64/release/tennis-training-tool"
+          mv "build/linux/x64/release/bundle/tennis_training_tool" \
+             "build/linux/x64/release/bundle/tennis-training-tool"
         
       - name: Compile Windows MSIX Installer
         if: matrix.target == 'windows'
@@ -155,7 +155,7 @@ jobs:
         if: matrix.target == 'windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path build/windows/x64/runner/Release/* \
+          Compress-Archive -Path build/windows/x64/runner/Release/* `
                            -DestinationPath tennis-training-tool-windows-x64.zip
 
       - name: Upload Raw Linux Bundle for Arch Packaging
