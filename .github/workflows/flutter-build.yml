@@ -145,7 +145,7 @@ jobs:
         if: matrix.target == 'apk'
         run: |
           mv "${{ steps.sign_android_apk.outputs.signedReleaseFile }}" \
-             build/app/outputs/flutter-apk/app-release.apk
+             build/app/outputs/flutter-apk/tennis-training-tool-android.apk
 
       - name: Package Linux Target
         if: matrix.target == 'linux'
