@@ -186,36 +186,39 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
 
   Future<void> _exportPreferences() async {
     try {
+      const secure = FlutterSecureStorage();
       final p = await SharedPreferences.getInstance();
-      final url = await _secureStorage.read(key: "pdf_download_url") ?? "";
-      final pass =
-          await _secureStorage.read(key: "pdf_encryption_password") ?? "";
 
-      final Map<String, dynamic> configMap = {
-        "url": url,
-        "password": pass,
-        "last_page": p.getInt('last_pdf_page') ?? 1,
-        "local_path": p.getString('last_picked_local_path') ?? "",
+      final Map<String, dynamic> configBackup = {
+        "backup_version": "2026.2",
+
+        "pdf_url": await secure.read(key: "pdf_download_url") ?? "",
+        "pdf_password": await secure.read(key: "pdf_encryption_password") ?? "",
+        "pdf_last_page": p.getInt('last_pdf_page') ?? 1,
+        "pdf_local_path": p.getString('last_picked_local_path') ?? "",
+
+        "git_json_repo": await secure.read(key: "git_json_repo") ?? "",
+        "git_json_token": await secure.read(key: "git_json_token") ?? "",
+        "git_json_password": await secure.read(key: "git_json_password") ?? "",
       };
 
-      final String jsonString = json.encode(configMap);
+      final String jsonString = json.encode(configBackup);
       final Uint8List fileBytes = Uint8List.fromList(utf8.encode(jsonString));
 
       final String? outputPath = await FilePicker.saveFile(
-        dialogTitle: 'Export App Settings',
-        fileName: 'tennis_tool_settings.json',
+        dialogTitle: 'Export Configuration Settings',
+        fileName: 'tennis_tool_config_backup.json',
         type: FileType.custom,
         allowedExtensions: ['json'],
         bytes: fileBytes,
       );
 
       if (outputPath != null) {
-        final File exportFile = File(outputPath);
-        await exportFile.writeAsBytes(fileBytes);
-        _showSnackBar("Configuration profile saved successfully!");
+        await File(outputPath).writeAsBytes(fileBytes);
+        _showSnackBar("Configuration keys backed up cleanly!");
       }
     } catch (e) {
-      _showSnackBar("Failed to export configuration file: $e");
+      _showSnackBar("Export failed: $e");
     }
   }
 
@@ -228,42 +231,56 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
 
       if (result != null && result.files.single.path != null) {
         final File selectedFile = File(result.files.single.path!);
-        final String fileContent = await selectedFile.readAsString();
+        final Map<String, dynamic> config = json.decode(
+          await selectedFile.readAsString(),
+        );
 
-        final Map<String, dynamic> parsed = json.decode(fileContent);
         final prefs = await SharedPreferences.getInstance();
+        const secure = FlutterSecureStorage();
 
-        if (parsed.containsKey("url") && parsed.containsKey("password")) {
-          await _secureStorage.write(
-            key: "pdf_download_url",
-            value: parsed["url"],
-          );
-          await _secureStorage.write(
+        if (config.containsKey("pdf_url")) {
+          await secure.write(key: "pdf_download_url", value: config["pdf_url"]);
+        }
+        if (config.containsKey("pdf_password")) {
+          await secure.write(
             key: "pdf_encryption_password",
-            value: parsed["password"],
-          );
-
-          if (parsed["local_path"] != null && parsed["local_path"] != "") {
-            await prefs.setString(
-              'last_picked_local_path',
-              parsed["local_path"],
-            );
-          } else {
-            await prefs.remove('last_picked_local_path');
-          }
-
-          await prefs.setInt('last_pdf_page', parsed["last_page"] ?? 1);
-          _showSnackBar("Configuration imported! Syncing new playbook...");
-
-          _initializeSyncPipeline();
-        } else {
-          _showSnackBar(
-            "Invalid File: Missing mandatory configuration properties.",
+            value: config["pdf_password"],
           );
         }
+        if (config["pdf_local_path"] != null &&
+            config["pdf_local_path"] != "") {
+          await prefs.setString(
+            'last_picked_local_path',
+            config["pdf_local_path"],
+          );
+        }
+        await prefs.setInt('last_pdf_page', config["pdf_last_page"] ?? 1);
+
+        if (config.containsKey("git_json_repo")) {
+          await secure.write(
+            key: "git_json_repo",
+            value: config["git_json_repo"],
+          );
+        }
+        if (config.containsKey("git_json_token")) {
+          await secure.write(
+            key: "git_json_token",
+            value: config["git_json_token"],
+          );
+        }
+        if (config.containsKey("git_json_password")) {
+          await secure.write(
+            key: "git_json_password",
+            value: config["git_json_password"],
+          );
+        }
+
+        _showSnackBar("Configuration imported! Fetching data from GitHub...");
+
+        _initializeSyncPipeline();
       }
     } catch (e) {
-      _showSnackBar("Failed to import configuration: $e");
+      _showSnackBar("Import failed: Invalid configuration template.");
     }
   }
 
