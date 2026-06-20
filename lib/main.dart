@@ -9,11 +9,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_common/flutter_common.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'main_app.dart';
+import 'constants.dart';
+import 'main_navigation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,5 +45,14 @@ Future<void> main() async {
     });
   }
 
-  runApp(const MainApp());
+  runApp(
+    MainApp(
+      githubOrganization,
+      githubRepo,
+      baseAssetName,
+      appName,
+      appIcon,
+      () => MainNavigation(),
+    ),
+  );
 }
