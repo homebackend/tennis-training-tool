@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'services/biometric_sync_service.dart';
+import 'widgets/athlete_analytics_dashboard.dart';
 import 'widgets/biometric_dialogs.dart';
 import 'widgets/athlete_tracker_setup.dart';
 import 'widgets/athlete_selector_bar.dart';
@@ -63,14 +64,13 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
     if (!mounted) return;
 
     final sheets = _syncService.schema?["sheets"] as List? ?? [];
-
     final int preservedIndex = _tabController?.index ?? 0;
 
     _tabController?.dispose();
     _tabController = TabController(
-      length: sheets.length,
+      length: sheets.length + 1,
       vsync: this,
-      initialIndex: preservedIndex < sheets.length ? preservedIndex : 0,
+      initialIndex: preservedIndex < (sheets.length + 1) ? preservedIndex : 0,
     );
 
     for (var sheet in sheets) {
@@ -262,9 +262,10 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
             ? TabBar(
                 controller: _tabController,
                 isScrollable: true,
-                tabs: sheets
-                    .map<Tab>((s) => Tab(text: s["name"].toString()))
-                    .toList(),
+                tabs: [
+                  ...sheets.map<Tab>((s) => Tab(text: s["name"].toString())),
+                  const Tab(text: "📊 Analytics Dashboard"),
+                ],
               )
             : null,
       ),
@@ -338,28 +339,34 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
                   )
                 : TabBarView(
                     controller: _tabController,
-                    children: sheets.map<Widget>((sheet) {
-                      final String sid = sheet["id"].toString();
+                    children: [
+                      ...sheets.map<Widget>((sheet) {
+                        final String sid = sheet["id"].toString();
+                        return TrackerDataGrid(
+                          sheet: sheet,
+                          sheetId: sid,
+                          columns: sheet["columns"],
+                          activeKid: activeKid,
+                          pagingState:
+                              _statesMap[sid] ??
+                              PagingState(
+                                pages: [],
+                                keys: [],
+                                error: null,
+                                hasNextPage: true,
+                                isLoading: false,
+                              ),
+                          syncService: _syncService,
+                          onFetchNextPage: () => _fetchNextSlice(sid),
+                          onRowModified: _resetAndRefreshAllViewports,
+                        );
+                      }),
 
-                      return TrackerDataGrid(
-                        sheet: sheet,
-                        sheetId: sid,
-                        columns: sheet["columns"],
-                        activeKid: activeKid,
-                        pagingState:
-                            _statesMap[sid] ??
-                            PagingState(
-                              pages: [],
-                              keys: [],
-                              error: null,
-                              hasNextPage: true,
-                              isLoading: false,
-                            ),
-                        syncService: _syncService,
-                        onFetchNextPage: () => _fetchNextSlice(sid),
-                        onRowModified: _resetAndRefreshAllViewports,
-                      );
-                    }).toList(),
+                      AthleteAnalyticsDashboard(
+                        biometrics: _syncService.appData["biometrics"],
+                        kidId: _selectedKidId!,
+                      ),
+                    ],
                   ),
           ),
         ],
