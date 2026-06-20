@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Grants file handles to the app's sandboxed local documents directory -->
-    <files-path name="internal_files" path="." />
-    <!-- Grants file handles to app-specific cache directory for downloaded updates -->
-    <cache-path name="internal_cache" path="." />
-    <!-- Grants file handles to external storage locations if used by the picker -->
-    <external-path name="external_files" path="." />
-</paths>
