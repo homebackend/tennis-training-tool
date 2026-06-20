@@ -27,8 +27,8 @@ jobs:
           - target: apk
             os: ubuntu-latest
             upload_paths: |
-              build/app/outputs/flutter-apk/app-release.apk
-              build/app/outputs/bundle/release/app-release.aab
+              build/app/outputs/flutter-apk/tennis-training-tool-android.apk
+              build/app/outputs/bundle/release/tennis-training-tool-android.aab
           - target: web
             os: ubuntu-latest
             upload_paths: "tennis-training-tool-web.zip"
@@ -97,6 +97,14 @@ jobs:
       - name: Build Android App Bundle
         if: matrix.target == 'apk'
         run: flutter build appbundle --release
+
+      - name: Rename apk/aab (android)
+        if: matrix.target == 'apk'
+        run: |
+          mv "build/app/outputs/flutter-apk/app-release.apk" \
+             "build/app/outputs/flutter-apk/tennis-training-tool-android.apk"
+          mv "build/app/outputs/bundle/release/app-release.aab" \
+             "build/app/outputs/bundle/release/tennis-training-tool-android.aab"
 
       - name: Rename executable (windows)
         if: matrix.target == 'windows'
@@ -354,8 +362,8 @@ jobs:
       - name: Organize Files for Upload
         run: |
           mkdir -p ./release-assets
-          find ./artifacts \( -name "app-release.apk" -o \
-                              -name "app-release.aab" -o \
+          find ./artifacts \( -name "tennis-training-tool-android.apk" -o \
+                              -name "tennis-training-tool-android.aab" -o \
                               -name "tennis-training-tool-web.zip" -o \
                               -name "tennis-training-tool-linux-x64.tar.gz" -o \
                               -name "tennis-training-tool-linux-x64.pkg.tar.zst" -o \
