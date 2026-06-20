@@ -16,4 +16,5 @@ const String githubRepo = String.fromEnvironment(
   'GH_REPO',
   defaultValue: 'tennis-training-tool',
 );
+final String baseAssetName = 'tennis-training-tool';
 const String upgradeFileName = 'app-release.apk';
