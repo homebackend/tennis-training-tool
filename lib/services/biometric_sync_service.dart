@@ -6,6 +6,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
@@ -13,12 +14,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:cryptography/cryptography.dart';
 import 'package:http/http.dart' as http;
+import 'package:tennis_training_tool/services/encrypt_decryt_service.dart';
 import 'package:yaml/yaml.dart';
 
-class BiometricSyncService {
+class BiometricSyncService with EncryptDecryptService {
   final _secureStorage = const FlutterSecureStorage();
+  static final StreamController<void> globalResyncTrigger =
+      StreamController<void>.broadcast();
 
   static const String _keyRepo = "git_json_repo";
   static const String _keyToken = "git_json_token";
@@ -97,7 +100,7 @@ class BiometricSyncService {
       final encryptedBytes = base64Decode(
         dataBody["content"].toString().replaceAll('\n', ''),
       );
-      final decryptedBytes = await _decryptBytes(encryptedBytes, cryptoPass);
+      final decryptedBytes = await decryptBytes(encryptedBytes, cryptoPass);
       appData = json.decode(utf8.decode(decryptedBytes));
     } else if (dataRes.statusCode == 404) {
       appData = {"kids": [], "biometrics": []};
@@ -140,7 +143,7 @@ class BiometricSyncService {
       "https://api.github.com/repos/$repo/contents/tracker.json",
     );
     final plainBytes = utf8.encode(json.encode(appData));
-    final encryptedBytes = await _encryptBytes(
+    final encryptedBytes = await encryptBytes(
       Uint8List.fromList(plainBytes),
       cryptoPass,
     );
@@ -271,38 +274,6 @@ class BiometricSyncService {
       default:
         return Colors.black87;
     }
-  }
-
-  Future<Uint8List> _encryptBytes(Uint8List plain, String password) async {
-    final salt = SecretKeyData.random(length: 16).bytes;
-    final key = await Pbkdf2.hmacSha256(
-      iterations: 10000,
-      bits: 256,
-    ).deriveKey(secretKey: SecretKey(utf8.encode(password)), nonce: salt);
-    final box = await AesGcm.with256bits().encrypt(plain, secretKey: key);
-    return Uint8List.fromList([
-      ...salt,
-      ...box.nonce,
-      ...box.mac.bytes,
-      ...box.cipherText,
-    ]);
-  }
-
-  Future<Uint8List> _decryptBytes(Uint8List enc, String password) async {
-    final salt = enc.sublist(0, 16).cast<int>(),
-        nonce = enc.sublist(16, 28).cast<int>(),
-        mac = enc.sublist(28, 44).cast<int>(),
-        ct = enc.sublist(44).cast<int>();
-    final key = await Pbkdf2.hmacSha256(
-      iterations: 10000,
-      bits: 256,
-    ).deriveKey(secretKey: SecretKey(utf8.encode(password)), nonce: salt);
-    return Uint8List.fromList(
-      await AesGcm.with256bits().decrypt(
-        SecretBox(ct, nonce: nonce, mac: Mac(mac)),
-        secretKey: key,
-      ),
-    );
   }
 
   Future<void> cacheLocally() async {
