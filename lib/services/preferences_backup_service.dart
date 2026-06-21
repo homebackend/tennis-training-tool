@@ -16,7 +16,9 @@ import 'package:file_picker/file_picker.dart';
 import 'biometric_sync_service.dart';
 
 class PreferencesBackupService {
-  final _secureStorage = const FlutterSecureStorage();
+  final FlutterSecureStorage _secureStorage;
+
+  PreferencesBackupService(this._secureStorage);
 
   Future<String?> exportSystemPreferences() async {
     try {

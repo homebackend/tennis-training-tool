@@ -29,7 +29,7 @@ mixin PdfLoaderService implements EncryptDecryptService {
   static final _keyLastPdfPage = 'last_pdf_page';
   static final _keyPdfNetworkEtag = 'pdf_network_etag';
 
-  final _secureStorage = const FlutterSecureStorage();
+  FlutterSecureStorage get secureStorage;
   StreamSubscription<void>? _pdfResyncSubscription;
   Timer? _updateCheckTimer;
 
@@ -64,8 +64,8 @@ mixin PdfLoaderService implements EncryptDecryptService {
         return;
       }
 
-      final u = await _secureStorage.read(key: _keyPdfDownloadUrl);
-      final p = await _secureStorage.read(key: _keyPdfEncryptionPassword);
+      final u = await secureStorage.read(key: _keyPdfDownloadUrl);
+      final p = await secureStorage.read(key: _keyPdfEncryptionPassword);
       if (u != null && p != null) {
         _syncEncryptedDocument(u, p, silentCheck: true);
       }
@@ -134,8 +134,8 @@ mixin PdfLoaderService implements EncryptDecryptService {
       return;
     }
 
-    final savedUrl = await _secureStorage.read(key: _keyPdfDownloadUrl);
-    final savedPassword = await _secureStorage.read(
+    final savedUrl = await secureStorage.read(key: _keyPdfDownloadUrl);
+    final savedPassword = await secureStorage.read(
       key: _keyPdfEncryptionPassword,
     );
 
@@ -184,8 +184,8 @@ mixin PdfLoaderService implements EncryptDecryptService {
   Future<void> saveConfigAndFetch(String url, String password) async {
     if (url.isEmpty || password.isEmpty) return;
     setState(() => isLoading = true);
-    await _secureStorage.write(key: _keyPdfDownloadUrl, value: url);
-    await _secureStorage.write(key: _keyPdfEncryptionPassword, value: password);
+    await secureStorage.write(key: _keyPdfDownloadUrl, value: url);
+    await secureStorage.write(key: _keyPdfEncryptionPassword, value: password);
 
     await _syncEncryptedDocument(url, password);
     setState(() => isLoading = false);

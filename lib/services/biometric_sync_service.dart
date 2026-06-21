@@ -15,11 +15,12 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:tennis_training_tool/services/encrypt_decryt_service.dart';
 import 'package:yaml/yaml.dart';
 
+import 'encrypt_decryt_service.dart';
+
 class BiometricSyncService with EncryptDecryptService {
-  final _secureStorage = const FlutterSecureStorage();
+  final FlutterSecureStorage _secureStorage;
   static final StreamController<void> globalResyncTrigger =
       StreamController<void>.broadcast();
 
@@ -29,11 +30,13 @@ class BiometricSyncService with EncryptDecryptService {
   static const String _keyDataCache = "json_local_cache";
   static const String _keyShaCache = "json_server_sha";
 
-  static const String hardcodedFileName = "tracker.json";
+  static const String _fileName = "tracker.json";
 
   Map<String, dynamic> appData = {"kids": [], "biometrics": []};
   Map? schema;
   String? serverFileSha;
+
+  BiometricSyncService(this._secureStorage);
 
   Future<bool> loadCachedSession() async {
     final prefs = await SharedPreferences.getInstance();
@@ -87,7 +90,7 @@ class BiometricSyncService with EncryptDecryptService {
     final cryptoPass = await _secureStorage.read(key: _keyPassword) ?? "";
 
     final dataUrl = Uri.parse(
-      "https://api.github.com/repos/$repo/contents/tracker.json",
+      "https://api.github.com/repos/$repo/contents/$_fileName",
     );
 
     final dataRes = await http.get(
@@ -140,7 +143,7 @@ class BiometricSyncService with EncryptDecryptService {
     final cryptoPass = await _secureStorage.read(key: _keyPassword) ?? "";
 
     final url = Uri.parse(
-      "https://api.github.com/repos/$repo/contents/tracker.json",
+      "https://api.github.com/repos/$repo/contents/$_fileName",
     );
     final plainBytes = utf8.encode(json.encode(appData));
     final encryptedBytes = await encryptBytes(

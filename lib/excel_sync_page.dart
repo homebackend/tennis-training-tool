@@ -7,6 +7,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'services/biometric_sync_service.dart';
@@ -17,7 +18,8 @@ import 'widgets/athlete_selector_bar.dart';
 import 'widgets/tracker_data_grid.dart';
 
 class ExcelSyncPage extends StatefulWidget {
-  const ExcelSyncPage({super.key});
+  final FlutterSecureStorage secureStorage;
+  const ExcelSyncPage(this.secureStorage, {super.key});
 
   @override
   State<ExcelSyncPage> createState() => _ExcelSyncPageState();
@@ -25,7 +27,7 @@ class ExcelSyncPage extends StatefulWidget {
 
 class _ExcelSyncPageState extends State<ExcelSyncPage>
     with TickerProviderStateMixin {
-  final BiometricSyncService _syncService = BiometricSyncService();
+  late final BiometricSyncService _syncService;
   final _repoController = TextEditingController();
   final _tokenController = TextEditingController();
   final _cryptoPasswordController = TextEditingController();
@@ -41,6 +43,7 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
   @override
   void initState() {
     super.initState();
+    _syncService = BiometricSyncService(widget.secureStorage);
     _loadSession();
   }
 

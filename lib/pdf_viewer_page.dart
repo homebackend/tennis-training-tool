@@ -9,6 +9,7 @@
 import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,7 +18,8 @@ import 'services/pdf_loader_service.dart';
 import 'services/preferences_backup_service.dart';
 
 class PdfViewerPage extends StatefulWidget {
-  const PdfViewerPage({super.key});
+  final FlutterSecureStorage secureStorage;
+  const PdfViewerPage(this.secureStorage, {super.key});
 
   @override
   State<PdfViewerPage> createState() => _PdfViewerPageState();
@@ -25,7 +27,7 @@ class PdfViewerPage extends StatefulWidget {
 
 class _PdfViewerPageState extends State<PdfViewerPage>
     with EncryptDecryptService, PdfLoaderService {
-  final PreferencesBackupService _backupService = PreferencesBackupService();
+  late final PreferencesBackupService _backupService;
   late final PdfViewerController _pdfController;
   final _outlineNotifier = ValueNotifier<List<PdfOutlineNode>?>(null);
   final _currentPageNotifier = ValueNotifier<int>(1);
@@ -37,6 +39,7 @@ class _PdfViewerPageState extends State<PdfViewerPage>
   @override
   void initState() {
     super.initState();
+    _backupService = PreferencesBackupService(secureStorage);
     _pdfController = PdfViewerController();
     initPdfLoader();
   }
@@ -56,6 +59,9 @@ class _PdfViewerPageState extends State<PdfViewerPage>
   void setOutlineNotifierNull() {
     _outlineNotifier.value = null;
   }
+
+  @override
+  FlutterSecureStorage get secureStorage => widget.secureStorage;
 
   void _showSnackBar(String message) {
     if (mounted) {
