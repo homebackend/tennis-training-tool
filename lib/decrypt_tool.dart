@@ -11,7 +11,7 @@ import 'dart:io';
 
 import 'services/encrypt_decryt_service.dart';
 
-class Encrypter with EncryptDecryptService {}
+class Decryptor with EncryptDecryptService {}
 
 void main(List<String> args) async {
   if (args.length < 2) {
@@ -30,9 +30,9 @@ void main(List<String> args) async {
   log('Encrypting ${sourceFile.path}...');
 
   final fileBytes = await sourceFile.readAsBytes();
-  final encryptedData = await Encrypter().encryptBytes(fileBytes, password);
+  final encryptedData = await Decryptor().decryptBytes(fileBytes, password);
 
-  final String outputPath = '${sourceFile.path}.enc';
+  final String outputPath = '${sourceFile.path}.dec';
   await File(outputPath).writeAsBytes(encryptedData);
 
   log('✨ Successfully encrypted! Upload this file to your URL: $outputPath');

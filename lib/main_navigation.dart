@@ -7,8 +7,10 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'audio_player_page.dart';
+import 'excel_sync_page.dart';
 import 'pdf_viewer_page.dart';
 
 class MainNavigation extends StatefulWidget {
@@ -20,8 +22,18 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  final FlutterSecureStorage secureStorage = FlutterSecureStorage();
+  late final List<Widget> _pages;
 
-  final List<Widget> _pages = [const PdfViewerPage(), const AudioPlayerPage()];
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      PdfViewerPage(secureStorage),
+      const AudioPlayerPage(),
+      ExcelSyncPage(secureStorage),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +48,10 @@ class _MainNavigationState extends State<MainNavigation> {
             label: 'PDF',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.music_note), label: 'Audio'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.analytics_outlined),
+            label: 'Athlete Tracker',
+          ),
         ],
       ),
     );
