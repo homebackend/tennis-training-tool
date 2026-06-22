@@ -19,14 +19,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'biometric_sync_service.dart';
 import 'encrypt_decryt_service.dart';
+import 'preferences_backup_service.dart';
 
 mixin PdfLoaderService implements EncryptDecryptService {
-  static final _keyPdfDownloadUrl = 'pdf_download_url';
-  static final _keyPdfEncryptionPassword = 'pdf_encryption_password';
-  static final _keyPdfCachedLocalPath = 'pdf_cached_local_path';
   static final _keyUseLocalPdfPath = 'use_local_pdf_path';
   static final _keyLastPickedLocalPath = 'last_picked_local_path';
   static final _keyLastPdfPage = 'last_pdf_page';
+  static final _keyPdfCachedLocalPath = 'pdf_cached_local_path';
   static final _keyPdfNetworkEtag = 'pdf_network_etag';
 
   FlutterSecureStorage get secureStorage;
@@ -64,8 +63,12 @@ mixin PdfLoaderService implements EncryptDecryptService {
         return;
       }
 
-      final u = await secureStorage.read(key: _keyPdfDownloadUrl);
-      final p = await secureStorage.read(key: _keyPdfEncryptionPassword);
+      final u = await secureStorage.read(
+        key: PreferencesBackupService.keyPdfDownloadUrl,
+      );
+      final p = await secureStorage.read(
+        key: PreferencesBackupService.keyPdfEncryptionPassword,
+      );
       if (u != null && p != null) {
         _syncEncryptedDocument(u, p, silentCheck: true);
       }
@@ -134,9 +137,11 @@ mixin PdfLoaderService implements EncryptDecryptService {
       return;
     }
 
-    final savedUrl = await secureStorage.read(key: _keyPdfDownloadUrl);
+    final savedUrl = await secureStorage.read(
+      key: PreferencesBackupService.keyPdfDownloadUrl,
+    );
     final savedPassword = await secureStorage.read(
-      key: _keyPdfEncryptionPassword,
+      key: PreferencesBackupService.keyPdfEncryptionPassword,
     );
 
     if (savedUrl != null && savedPassword != null) {
@@ -184,8 +189,14 @@ mixin PdfLoaderService implements EncryptDecryptService {
   Future<void> saveConfigAndFetch(String url, String password) async {
     if (url.isEmpty || password.isEmpty) return;
     setState(() => isLoading = true);
-    await secureStorage.write(key: _keyPdfDownloadUrl, value: url);
-    await secureStorage.write(key: _keyPdfEncryptionPassword, value: password);
+    await secureStorage.write(
+      key: PreferencesBackupService.keyPdfDownloadUrl,
+      value: url,
+    );
+    await secureStorage.write(
+      key: PreferencesBackupService.keyPdfEncryptionPassword,
+      value: password,
+    );
 
     await _syncEncryptedDocument(url, password);
     setState(() => isLoading = false);

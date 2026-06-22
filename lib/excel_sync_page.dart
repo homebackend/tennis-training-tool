@@ -6,9 +6,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'services/biometric_sync_service.dart';
 import 'widgets/athlete_analytics_dashboard.dart';
@@ -27,7 +30,10 @@ class ExcelSyncPage extends StatefulWidget {
 
 class _ExcelSyncPageState extends State<ExcelSyncPage>
     with TickerProviderStateMixin {
+  static final String _keyLastSelectedKidId = 'last_selected_kid_id';
+
   late final BiometricSyncService _syncService;
+  StreamSubscription<void>? _resyncSubscription;
   final _repoController = TextEditingController();
   final _tokenController = TextEditingController();
   final _cryptoPasswordController = TextEditingController();
@@ -45,6 +51,13 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
     super.initState();
     _syncService = BiometricSyncService(widget.secureStorage);
     _loadSession();
+
+    _resyncSubscription = BiometricSyncService.globalResyncTrigger.stream
+        .listen((_) {
+          if (mounted) {
+            _loadSession();
+          }
+        });
   }
 
   Future<void> _loadSession() async {
@@ -52,7 +65,16 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
     if (_isConfigured) {
       _repoController.text = "Active Workspace Connected";
       if (_syncService.appData["kids"].isNotEmpty) {
-        _selectedKidId = _syncService.appData["kids"].first["id"];
+        final prefs = await SharedPreferences.getInstance();
+        String? selectedKidId = prefs.getString(_keyLastSelectedKidId);
+        if (selectedKidId != null &&
+            _syncService.appData["kids"].any(
+              (kid) => kid["id"] == selectedKidId,
+            )) {
+          _selectedKidId = selectedKidId;
+        } else {
+          _selectedKidId = _syncService.appData["kids"].first["id"];
+        }
         _initializeTrackingStates();
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -176,6 +198,7 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
 
   @override
   void dispose() {
+    _resyncSubscription?.cancel();
     _repoController.dispose();
     _tokenController.dispose();
     _cryptoPasswordController.dispose();

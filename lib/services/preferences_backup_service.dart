@@ -16,6 +16,12 @@ import 'package:file_picker/file_picker.dart';
 import 'biometric_sync_service.dart';
 
 class PreferencesBackupService {
+  static final keyPdfDownloadUrl = 'pdf_download_url';
+  static final keyPdfEncryptionPassword = 'pdf_encryption_password';
+  static final keyGitRepoTarget = 'git_repo_target';
+  static final keyGitAccessToken = 'git_access_token';
+  static final keyGitAesPassword = 'git_aes_password';
+
   final FlutterSecureStorage _secureStorage;
 
   PreferencesBackupService(this._secureStorage);
@@ -28,18 +34,15 @@ class PreferencesBackupService {
         "backup_version": "2026.3",
         "timestamp": DateTime.now().toIso8601String(),
 
-        "pdf_url": await _secureStorage.read(key: "pdf_download_url") ?? "",
+        "pdf_url": await _secureStorage.read(key: keyPdfDownloadUrl) ?? "",
         "pdf_password":
-            await _secureStorage.read(key: "pdf_encryption_password") ?? "",
-        "pdf_last_page": p.getInt('last_pdf_page') ?? 1,
-        "pdf_local_path": p.getString('last_picked_local_path') ?? "",
+            await _secureStorage.read(key: keyPdfEncryptionPassword) ?? "",
 
-        "git_json_repo":
-            await _secureStorage.read(key: "git_repo_target") ?? "",
+        "git_json_repo": await _secureStorage.read(key: keyGitRepoTarget) ?? "",
         "git_json_token":
-            await _secureStorage.read(key: "git_access_token") ?? "",
+            await _secureStorage.read(key: keyGitAccessToken) ?? "",
         "git_json_password":
-            await _secureStorage.read(key: "git_aes_password") ?? "",
+            await _secureStorage.read(key: keyGitAesPassword) ?? "",
       };
 
       final String jsonString = json.encode(configBackup);
@@ -78,43 +81,34 @@ class PreferencesBackupService {
 
         final prefs = await SharedPreferences.getInstance();
 
-        // 1. Unpack Training Manual Credentials
         if (config.containsKey("pdf_url")) {
           await _secureStorage.write(
-            key: "pdf_download_url",
+            key: keyPdfDownloadUrl,
             value: config["pdf_url"],
           );
         }
         if (config.containsKey("pdf_password")) {
           await _secureStorage.write(
-            key: "pdf_encryption_password",
+            key: keyPdfEncryptionPassword,
             value: config["pdf_password"],
           );
         }
-        if (config["pdf_local_path"] != null &&
-            config["pdf_local_path"] != "") {
-          await prefs.setString(
-            'last_picked_local_path',
-            config["pdf_local_path"],
-          );
-        }
-        await prefs.setInt('last_pdf_page', config["pdf_last_page"] ?? 1);
 
         if (config.containsKey("git_json_repo")) {
           await _secureStorage.write(
-            key: "git_repo_target",
+            key: keyGitRepoTarget,
             value: config["git_json_repo"],
           );
         }
         if (config.containsKey("git_json_token")) {
           await _secureStorage.write(
-            key: "git_access_token",
+            key: keyGitAccessToken,
             value: config["git_json_token"],
           );
         }
         if (config.containsKey("git_json_password")) {
           await _secureStorage.write(
-            key: "git_aes_password",
+            key: keyGitAesPassword,
             value: config["git_json_password"],
           );
         }

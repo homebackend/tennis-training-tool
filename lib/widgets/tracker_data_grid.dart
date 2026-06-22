@@ -198,56 +198,60 @@ class TrackerDataGrid extends StatelessWidget {
                       }),
                       SizedBox(
                         width: 80,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            IconButton(
-                              icon: const Icon(
-                                Icons.edit,
-                                color: Colors.blue,
-                                size: 16,
-                              ),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () =>
-                                  BiometricDialogs.showMetricsRowForm(
-                                    context,
-                                    sheet,
-                                    currentRow,
-                                    (updated) {
-                                      currentRow.addAll(updated);
-                                      for (var col in columns) {
-                                        if (col["type"] == "computed") {
-                                          currentRow[col["id"]] = syncService
-                                              .computeFormulaValue(
-                                                col["formula"],
-                                                currentRow,
-                                              );
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.edit,
+                                  color: Colors.blue,
+                                  size: 16,
+                                ),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () =>
+                                    BiometricDialogs.showMetricsRowForm(
+                                      context,
+                                      sheet,
+                                      currentRow,
+                                      (updated) {
+                                        currentRow.addAll(updated);
+                                        for (var col in columns) {
+                                          if (col["type"] == "computed") {
+                                            currentRow[col["id"]] = syncService
+                                                .computeFormulaValue(
+                                                  col["formula"],
+                                                  currentRow,
+                                                );
+                                          }
                                         }
-                                      }
-                                      syncService.cacheLocally();
-                                      onRowModified();
-                                    },
-                                  ),
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.delete,
-                                color: Colors.red,
-                                size: 16,
+                                        syncService.cacheLocally();
+                                        onRowModified();
+                                      },
+                                    ),
                               ),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () {
-                                syncService.appData["biometrics"].removeWhere(
-                                  (b) =>
-                                      b["entry_id"] == currentRow["entry_id"],
-                                );
-                                syncService.cacheLocally();
-                                onRowModified();
-                              },
-                            ),
-                          ],
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                  size: 16,
+                                ),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () {
+                                  syncService.appData["biometrics"].removeWhere(
+                                    (b) =>
+                                        b["entry_id"] == currentRow["entry_id"],
+                                  );
+                                  syncService.cacheLocally();
+                                  onRowModified();
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],

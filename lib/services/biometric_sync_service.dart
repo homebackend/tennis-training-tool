@@ -18,15 +18,13 @@ import 'package:http/http.dart' as http;
 import 'package:yaml/yaml.dart';
 
 import 'encrypt_decryt_service.dart';
+import 'preferences_backup_service.dart';
 
 class BiometricSyncService with EncryptDecryptService {
   final FlutterSecureStorage _secureStorage;
   static final StreamController<void> globalResyncTrigger =
       StreamController<void>.broadcast();
 
-  static const String _keyRepo = "git_json_repo";
-  static const String _keyToken = "git_json_token";
-  static const String _keyPassword = "git_json_password";
   static const String _keyDataCache = "json_local_cache";
   static const String _keyShaCache = "json_server_sha";
 
@@ -47,12 +45,23 @@ class BiometricSyncService with EncryptDecryptService {
       return false;
     }
 
-    final repo = await _secureStorage.read(key: _keyRepo);
-    final token = await _secureStorage.read(key: _keyToken);
-    final pass = await _secureStorage.read(key: _keyPassword);
+    final repo = await _secureStorage.read(
+      key: PreferencesBackupService.keyGitRepoTarget,
+    );
+    final token = await _secureStorage.read(
+      key: PreferencesBackupService.keyGitAccessToken,
+    );
+    final pass = await _secureStorage.read(
+      key: PreferencesBackupService.keyGitAesPassword,
+    );
 
     if (repo != null && token != null && pass != null) {
-      final cache = prefs.getString(_keyDataCache);
+      String? cache = prefs.getString(_keyDataCache);
+      if (cache == null) {
+        // Try to load cache since it is missing
+        await syncFromGitHub();
+        cache = prefs.getString(_keyDataCache);
+      }
       if (cache != null) {
         appData = json.decode(cache);
         serverFileSha = prefs.getString(_keyShaCache);
@@ -67,9 +76,18 @@ class BiometricSyncService with EncryptDecryptService {
     required String token,
     required String password,
   }) async {
-    await _secureStorage.write(key: _keyRepo, value: repo);
-    await _secureStorage.write(key: _keyToken, value: token);
-    await _secureStorage.write(key: _keyPassword, value: password);
+    await _secureStorage.write(
+      key: PreferencesBackupService.keyGitRepoTarget,
+      value: repo,
+    );
+    await _secureStorage.write(
+      key: PreferencesBackupService.keyGitAccessToken,
+      value: token,
+    );
+    await _secureStorage.write(
+      key: PreferencesBackupService.keyGitAesPassword,
+      value: password,
+    );
   }
 
   Future<void> clearSavedSession() async {
@@ -85,9 +103,21 @@ class BiometricSyncService with EncryptDecryptService {
     final String rawYaml = await rootBundle.loadString('assets/schema.yaml');
     schema = loadYaml(rawYaml);
 
-    final repo = await _secureStorage.read(key: _keyRepo) ?? "";
-    final token = await _secureStorage.read(key: _keyToken) ?? "";
-    final cryptoPass = await _secureStorage.read(key: _keyPassword) ?? "";
+    final repo =
+        await _secureStorage.read(
+          key: PreferencesBackupService.keyGitRepoTarget,
+        ) ??
+        "";
+    final token =
+        await _secureStorage.read(
+          key: PreferencesBackupService.keyGitAccessToken,
+        ) ??
+        "";
+    final cryptoPass =
+        await _secureStorage.read(
+          key: PreferencesBackupService.keyGitAesPassword,
+        ) ??
+        "";
 
     final dataUrl = Uri.parse(
       "https://api.github.com/repos/$repo/contents/$_fileName",
@@ -138,9 +168,21 @@ class BiometricSyncService with EncryptDecryptService {
   }
 
   Future<void> pushToGitHub() async {
-    final repo = await _secureStorage.read(key: _keyRepo) ?? "";
-    final token = await _secureStorage.read(key: _keyToken) ?? "";
-    final cryptoPass = await _secureStorage.read(key: _keyPassword) ?? "";
+    final repo =
+        await _secureStorage.read(
+          key: PreferencesBackupService.keyGitRepoTarget,
+        ) ??
+        "";
+    final token =
+        await _secureStorage.read(
+          key: PreferencesBackupService.keyGitAccessToken,
+        ) ??
+        "";
+    final cryptoPass =
+        await _secureStorage.read(
+          key: PreferencesBackupService.keyGitAesPassword,
+        ) ??
+        "";
 
     final url = Uri.parse(
       "https://api.github.com/repos/$repo/contents/$_fileName",
