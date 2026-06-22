@@ -24,7 +24,7 @@ Future<void> main() async {
 
   await JustAudioBackground.init(
     androidNotificationChannelId: 'homebackend.tennis.training.audio',
-    androidNotificationChannelName: 'Tennis Audio Playback',
+    androidNotificationChannelName: 'Tennis Training Tool Audio',
     androidNotificationOngoing: true,
     androidNotificationIcon: 'ic_bg_audio_icon',
   );

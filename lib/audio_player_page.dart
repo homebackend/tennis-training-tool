@@ -63,7 +63,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
         fileAssetPath,
         tag: MediaItem(
           id: fileAssetPath,
-          album: "Local Audio Library",
+          album: "Tennis Training Tool",
           title: item['display'],
         ),
       );
