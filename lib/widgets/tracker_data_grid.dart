@@ -7,12 +7,14 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter_common/tool.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../services/biometric_sync_service.dart';
+import '../services/biometric_table_source.dart';
 import 'biometric_dialogs.dart';
 
-class TrackerDataGrid extends StatelessWidget {
+class TrackerDataGrid extends StatefulWidget {
   final Map sheet;
   final String sheetId;
   final List columns;
@@ -35,231 +37,165 @@ class TrackerDataGrid extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "Logs for ${activeKid['name']} (Newest First)",
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.blueGrey,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => BiometricDialogs.showMetricsRowForm(
-                  context,
-                  sheet,
-                  null,
-                  (newData) {
-                    newData["kid_id"] = activeKid["id"];
-                    newData["sheet_id"] = sheetId;
-                    newData["entry_id"] = DateTime.now().millisecondsSinceEpoch
-                        .toString();
-                    for (var col in columns) {
-                      if (col["type"] == "computed") {
-                        newData[col["id"]] = syncService.computeFormulaValue(
-                          col["formula"],
-                          newData,
-                        );
-                      }
-                    }
-                    syncService.appData["biometrics"].add(newData);
-                    syncService.cacheLocally();
-                    onRowModified();
-                  },
-                ),
-                icon: const Icon(Icons.add),
-                label: const Text("Log New Entry"),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          color: Colors.grey.shade200,
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-          child: Row(
-            children: [
-              ...columns.map(
-                (c) => Expanded(
-                  child: Text(
-                    c["name"],
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 70,
-                child: Text(
-                  "Actions",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: PagedListView<int, dynamic>(
-            state: pagingState,
-            fetchNextPage: onFetchNextPage,
-            builderDelegate: PagedChildBuilderDelegate<dynamic>(
-              noItemsFoundIndicatorBuilder: (context) => const Center(
-                child: Text("No records logged in this sheet yet."),
-              ),
-              itemBuilder: (context, row, index) {
-                final allItems =
-                    pagingState.pages?.expand((page) => page).toList() ?? [];
-                if (index >= allItems.length) return const SizedBox.shrink();
-                final currentRow = allItems[index];
+  State<TrackerDataGrid> createState() => _TrackerDataGridState();
+}
 
-                return Container(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: Colors.grey.shade300),
-                    ),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 16,
-                  ),
-                  child: Row(
-                    children: [
-                      ...columns.map<Widget>((col) {
-                        var value = currentRow[col["id"]];
-                        if (col["type"] == "computed") {
-                          value = syncService.computeFormulaValue(
-                            col["formula"],
-                            currentRow,
-                          );
-                        }
+class _TrackerDataGridState extends State<TrackerDataGrid> {
+  final ScrollController _horizontalScrollController = ScrollController();
 
-                        if (col["id"] == "Notes" && value != null) {
-                          final String noteText = value.toString();
-                          final bool isLong = noteText.length > 10;
+  @override
+  void dispose() {
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
 
-                          return Expanded(
-                            child: Tooltip(
-                              message: noteText,
-                              preferBelow: false,
-                              child: Text(
-                                isLong
-                                    ? "${noteText.substring(0, 10)}..."
-                                    : noteText,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-
-                        Color txtCol = Colors.black87;
-                        String ruleLabel = "";
-                        if (col["rules"] != null && value is num) {
-                          final eval = syncService.evaluateRule(
-                            sheetId,
-                            col["id"],
-                            value.toDouble(),
-                            activeKid["gender"],
-                          );
-                          txtCol = eval["color"];
-                          ruleLabel = eval["label"] != ""
-                              ? " (${eval['label']})"
-                              : "";
-                        }
-
-                        final textDisplay = value is double
-                            ? value.toStringAsFixed(1)
-                            : (value?.toString() ?? "");
-                        return Expanded(
-                          child: Text(
-                            "$textDisplay$ruleLabel",
-                            style: TextStyle(
-                              color: txtCol,
-                              fontSize: 12,
-                              fontWeight: ruleLabel.isNotEmpty
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        );
-                      }),
-                      SizedBox(
-                        width: 80,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.edit,
-                                  color: Colors.blue,
-                                  size: 16,
-                                ),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () =>
-                                    BiometricDialogs.showMetricsRowForm(
-                                      context,
-                                      sheet,
-                                      currentRow,
-                                      (updated) {
-                                        currentRow.addAll(updated);
-                                        for (var col in columns) {
-                                          if (col["type"] == "computed") {
-                                            currentRow[col["id"]] = syncService
-                                                .computeFormulaValue(
-                                                  col["formula"],
-                                                  currentRow,
-                                                );
-                                          }
-                                        }
-                                        syncService.cacheLocally();
-                                        onRowModified();
-                                      },
-                                    ),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete,
-                                  color: Colors.red,
-                                  size: 16,
-                                ),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () {
-                                  syncService.appData["biometrics"].removeWhere(
-                                    (b) =>
-                                        b["entry_id"] == currentRow["entry_id"],
-                                  );
-                                  syncService.cacheLocally();
-                                  onRowModified();
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+  Widget _logHeader(BuildContext context) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    physics: const BouncingScrollPhysics(),
+    child: Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            "Logs for ${widget.activeKid['name']} (Newest First)",
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.blueGrey,
+              fontWeight: FontWeight.bold,
             ),
           ),
+          SizedBox(width: 10),
+          ElevatedButton.icon(
+            onPressed: () => BiometricDialogs.showMetricsRowForm(
+              context,
+              widget.sheet,
+              null,
+              (newData) {
+                newData["kid_id"] = widget.activeKid["id"];
+                newData["sheet_id"] = widget.sheetId;
+                newData["entry_id"] = DateTime.now().millisecondsSinceEpoch
+                    .toString();
+                for (var col in widget.columns) {
+                  if (col["type"] == "computed") {
+                    newData[col["id"]] = widget.syncService.computeFormulaValue(
+                      col["formula"],
+                      newData,
+                    );
+                  }
+                }
+                widget.syncService.appData["biometrics"].add(newData);
+                widget.syncService.cacheLocally();
+                widget.onRowModified();
+              },
+            ),
+            icon: const Icon(Icons.add),
+            label: const Text("Log New Entry"),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _contents(List<dynamic> allItems) {
+    final tableSource = BiometricTableSource(
+      allRows: allItems,
+      columns: widget.columns,
+      context: context,
+      syncService: widget.syncService,
+      sheet: widget.sheet,
+      sheetId: widget.sheetId,
+      activeKid: widget.activeKid,
+      onRowModified: widget.onRowModified,
+    );
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      child: PaginatedDataTable(
+        horizontalMargin: 24,
+        header: const Text(
+          "Logged Metrics",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        rowsPerPage: 10,
+        columns: [
+          ...widget.columns.map(
+            (c) => DataColumn(
+              label: Text(
+                c["name"],
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ),
+          const DataColumn(
+            label: Text(
+              "Actions",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+            ),
+          ),
+        ],
+        source: tableSource,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allItems =
+        widget.pagingState.pages?.expand((page) => page).toList() ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _logHeader(context),
+        Expanded(
+          child: allItems.isEmpty
+              ? const Center(
+                  child: Text("No records logged in this sheet yet."),
+                )
+              : ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(scrollbars: true),
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      scrollbarTheme: const ScrollbarThemeData(
+                        thumbVisibility: WidgetStatePropertyAll(true),
+                        trackVisibility: WidgetStatePropertyAll(true),
+                      ),
+                    ),
+                    child: isDesktopPlatform()
+                        ? LayoutBuilder(
+                            builder: (context, constraints) {
+                              final computedMinimumWidth =
+                                  (widget.columns.length * 140.0) + 100.0;
+
+                              final tableTargetWidth =
+                                  constraints.maxWidth > computedMinimumWidth
+                                  ? constraints.maxWidth
+                                  : computedMinimumWidth;
+
+                              return Scrollbar(
+                                controller: _horizontalScrollController,
+                                thumbVisibility: true,
+                                trackVisibility: true,
+                                child: SingleChildScrollView(
+                                  controller: _horizontalScrollController,
+                                  scrollDirection: Axis.horizontal,
+                                  child: SizedBox(
+                                    width: tableTargetWidth,
+                                    child: _contents(allItems),
+                                  ),
+                                ),
+                              );
+                            },
+                          )
+                        : _contents(allItems),
+                  ),
+                ),
         ),
       ],
     );
