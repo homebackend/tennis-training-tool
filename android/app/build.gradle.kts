@@ -28,9 +28,29 @@ android {
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+        getByName("release") {
+            // was: minifyEnabled true
+            isMinifyEnabled = true
+
+            // was: shrinkResources true
+            isShrinkResources = true
+
+            // keep the audio_service classes we just added
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+
+            // if you have signing
+            //signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("debug")
+        }
+
+        getByName("debug") {
+            // keep debug fast - no minify
+            isMinifyEnabled = false
+            isShrinkResources = false
+
             signingConfig = signingConfigs.getByName("debug")
         }
     }
