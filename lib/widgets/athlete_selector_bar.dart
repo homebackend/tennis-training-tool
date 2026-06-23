@@ -33,51 +33,58 @@ class AthleteSelectorBar extends StatelessWidget {
     return Container(
       color: Colors.blue.shade50,
       padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          const Text(
-            "Active Child:",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: kids.isEmpty
-                ? const Text(
-                    "⚠️ Add a kid profile to begin track logs",
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: [
+            const Text(
+              "Active Child:",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 250,
+              child: kids.isEmpty
+                  ? const Text(
+                      "⚠️ Add a kid profile to begin track logs",
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : DropdownButton<String>(
+                      value: selectedKidId,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      items: kids.map<DropdownMenuItem<String>>((k) {
+                        return DropdownMenuItem(
+                          value: k["id"].toString(),
+                          child: Text(
+                            "${k['name']} (${k['gender']}, Age: ${k['age']})",
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: onKidChanged,
                     ),
-                  )
-                : DropdownButton<String>(
-                    value: selectedKidId,
-                    isExpanded: true,
-                    items: kids.map<DropdownMenuItem<String>>((k) {
-                      return DropdownMenuItem(
-                        value: k["id"].toString(),
-                        child: Text(
-                          "${k['name']} (${k['gender']}, Age: ${k['age']})",
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: onKidChanged,
-                  ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.person_add, color: Colors.green),
-            onPressed: onKidAdded,
-          ),
-          if (activeKid != null) ...[
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.blue),
-              onPressed: onKidEdited,
             ),
             IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _confirmProfileErasure(context),
+              icon: const Icon(Icons.person_add, color: Colors.green),
+              onPressed: onKidAdded,
             ),
+            if (activeKid != null) ...[
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.blue),
+                onPressed: onKidEdited,
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () => _confirmProfileErasure(context),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

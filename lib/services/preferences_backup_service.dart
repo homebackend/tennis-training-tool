@@ -9,7 +9,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -28,8 +27,6 @@ class PreferencesBackupService {
 
   Future<String?> exportSystemPreferences() async {
     try {
-      final p = await SharedPreferences.getInstance();
-
       final Map<String, dynamic> configBackup = {
         "backup_version": "2026.3",
         "timestamp": DateTime.now().toIso8601String(),
@@ -78,8 +75,6 @@ class PreferencesBackupService {
         final Map<String, dynamic> config = json.decode(
           await selectedFile.readAsString(),
         );
-
-        final prefs = await SharedPreferences.getInstance();
 
         if (config.containsKey("pdf_url")) {
           await _secureStorage.write(
