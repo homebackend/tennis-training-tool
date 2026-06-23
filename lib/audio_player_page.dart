@@ -7,6 +7,7 @@
  */
 
 import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
@@ -30,6 +31,14 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
     _audioPlayer = AudioPlayer();
     _loadAudioData();
     _setupAudioEventListeners();
+
+    _audioPlayer.durationStream.listen((Duration? dynamicDuration) {
+      if (dynamicDuration != null) {
+        log(
+          "Actual file duration resolved: ${dynamicDuration.inSeconds} seconds",
+        );
+      }
+    });
   }
 
   void _setupAudioEventListeners() {
@@ -59,22 +68,56 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
     } else {
       await _audioPlayer.stop();
 
-      final audioSource = AudioSource.asset(
-        fileAssetPath,
-        tag: MediaItem(
-          id: fileAssetPath,
-          album: "Tennis Training Tool",
-          title: item['display'],
-        ),
-      );
-
       try {
-        await _audioPlayer.setAudioSource(audioSource);
+        await _loadTrackAndSyncControls(
+          fileAssetPath,
+          "Tennis Training Tool",
+          item['display'],
+        );
         setState(() => _currentPlayingFile = fileAssetPath);
         await _audioPlayer.play();
       } catch (e) {
         debugPrint("Error loading audio asset: $e");
       }
+    }
+  }
+
+  Future<Duration?> _loadTrack(
+    String fileAssetPath,
+    String album,
+    String title, {
+    Duration? duration,
+  }) {
+    return _audioPlayer.setAudioSource(
+      AudioSource.asset(
+        fileAssetPath,
+        tag: MediaItem(
+          id: fileAssetPath,
+          album: album,
+          title: title,
+          duration: duration,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadTrackAndSyncControls(
+    String fileAssetPath,
+    String album,
+    String title,
+  ) async {
+    try {
+      final Duration? trackDuration = await _loadTrack(
+        fileAssetPath,
+        album,
+        title,
+      );
+
+      if (trackDuration != null) {
+        await _loadTrack(fileAssetPath, album, title, duration: trackDuration);
+      }
+    } catch (e) {
+      log("Audio metadata parse error: $e");
     }
   }
 
