@@ -26,7 +26,7 @@ Future<void> main() async {
     androidNotificationChannelId: 'homebackend.tennis.training.audio',
     androidNotificationChannelName: 'Tennis Training Tool Audio',
     androidNotificationOngoing: true,
-    androidNotificationIcon: 'ic_bg_audio_icon',
+    androidNotificationIcon: 'drawable/ic_bg_audio_icon',
   );
 
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
