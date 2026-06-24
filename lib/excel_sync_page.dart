@@ -14,10 +14,12 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'services/biometric_sync_service.dart';
+import 'tool.dart';
 import 'widgets/athlete_analytics_dashboard.dart';
 import 'widgets/biometric_dialogs.dart';
 import 'widgets/athlete_tracker_setup.dart';
 import 'widgets/athlete_selector_bar.dart';
+import 'widgets/conflict_dialog.dart';
 import 'widgets/tracker_data_grid.dart';
 
 class ExcelSyncPage extends StatefulWidget {
@@ -248,8 +250,7 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
                 : () async {
                     setState(() => _isSyncing = true);
                     try {
-                      await _syncService.pushToGitHub();
-                      _showSnackBar("Committed to Git!");
+                      await runSequentialSyncPipeline();
                     } catch (e) {
                       _showSnackBar("Error: $e");
                     } finally {
@@ -312,7 +313,7 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
               age,
               gender,
             ) {
-              final nid = DateTime.now().millisecondsSinceEpoch.toString();
+              final nid = getNewUuid();
               setState(() {
                 _syncService.appData["kids"].add({
                   "id": nid,
@@ -398,5 +399,32 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
         ],
       ),
     );
+  }
+
+  Future<void> runSequentialSyncPipeline({int attempt = 1}) async {
+    try {
+      await _syncService.pushToGitHubWithAutoMerge();
+      _showSnackBar("Committed to Git!");
+    } catch (e) {
+      if (e is ConcurrentModificationException && attempt <= 3) {
+        for (final conflict in e.conflicts) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => ConflictResolutionDialog(
+              conflict,
+              () => Navigator.pop(context),
+            ),
+          );
+        }
+
+        _showSnackBar(
+          "Resolutions applied locally. Re-trying commit (Attempt ${attempt + 1}/3)...",
+        );
+        await runSequentialSyncPipeline(attempt: attempt + 1);
+      } else {
+        rethrow;
+      }
+    }
   }
 }

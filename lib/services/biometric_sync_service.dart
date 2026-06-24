@@ -12,6 +12,8 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_common/flutter_common.dart';
+import 'package:http/http.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -19,6 +21,12 @@ import 'package:yaml/yaml.dart';
 
 import 'encrypt_decryt_service.dart';
 import 'preferences_backup_service.dart';
+import 'tracker_sync_service.dart';
+
+class ConcurrentModificationException implements Exception {
+  final List<SheetConflict> conflicts;
+  ConcurrentModificationException(this.conflicts);
+}
 
 class BiometricSyncService with EncryptDecryptService {
   final FlutterSecureStorage _secureStorage;
@@ -36,6 +44,35 @@ class BiometricSyncService with EncryptDecryptService {
 
   BiometricSyncService(this._secureStorage);
 
+  Future<(String, String, String)> getServerConfig() async {
+    final repo =
+        await _secureStorage.read(
+          key: PreferencesBackupService.keyGitRepoTarget,
+        ) ??
+        '';
+    final token =
+        await _secureStorage.read(
+          key: PreferencesBackupService.keyGitAccessToken,
+        ) ??
+        '';
+    final pass =
+        await _secureStorage.read(
+          key: PreferencesBackupService.keyGitAesPassword,
+        ) ??
+        '';
+
+    return (repo, pass, token);
+  }
+
+  Future<(Uri, Map<String, String>, String)> getTrackerServerInfo() async {
+    final (repo, token, pass) = await getServerConfig();
+    final uri = Uri.parse(
+      "https://api.github.com/repos/$repo/contents/$_fileName",
+    );
+    final headers = {"Authorization": "Bearer $token"};
+    return (uri, headers, pass);
+  }
+
   Future<bool> loadCachedSession() async {
     final prefs = await SharedPreferences.getInstance();
     try {
@@ -45,17 +82,8 @@ class BiometricSyncService with EncryptDecryptService {
       return false;
     }
 
-    final repo = await _secureStorage.read(
-      key: PreferencesBackupService.keyGitRepoTarget,
-    );
-    final token = await _secureStorage.read(
-      key: PreferencesBackupService.keyGitAccessToken,
-    );
-    final pass = await _secureStorage.read(
-      key: PreferencesBackupService.keyGitAesPassword,
-    );
-
-    if (repo != null && token != null && pass != null) {
+    final (repo, token, pass) = await getServerConfig();
+    if (repo.isNotEmpty && token.isNotEmpty && pass.isNotEmpty) {
       String? cache = prefs.getString(_keyDataCache);
       if (cache == null) {
         // Try to load cache since it is missing
@@ -99,48 +127,42 @@ class BiometricSyncService with EncryptDecryptService {
     serverFileSha = null;
   }
 
-  Future<void> syncFromGitHub() async {
-    final String rawYaml = await rootBundle.loadString('assets/schema.yaml');
-    schema = loadYaml(rawYaml);
+  Future<(int, String?, Map<String, dynamic>?)> fetchFromGitHub() async {
+    final (dataUrl, headers, pass) = await getTrackerServerInfo();
 
-    final repo =
-        await _secureStorage.read(
-          key: PreferencesBackupService.keyGitRepoTarget,
-        ) ??
-        "";
-    final token =
-        await _secureStorage.read(
-          key: PreferencesBackupService.keyGitAccessToken,
-        ) ??
-        "";
-    final cryptoPass =
-        await _secureStorage.read(
-          key: PreferencesBackupService.keyGitAesPassword,
-        ) ??
-        "";
-
-    final dataUrl = Uri.parse(
-      "https://api.github.com/repos/$repo/contents/$_fileName",
-    );
-
-    final dataRes = await http.get(
-      dataUrl,
-      headers: {"Authorization": "Bearer $token"},
-    );
+    final dataRes = await http.get(dataUrl, headers: headers);
     if (dataRes.statusCode == 200) {
       final dataBody = json.decode(dataRes.body);
-      serverFileSha = dataBody["sha"];
+      final String fileSha = dataBody["sha"];
       final encryptedBytes = base64Decode(
         dataBody["content"].toString().replaceAll('\n', ''),
       );
-      final decryptedBytes = await decryptBytes(encryptedBytes, cryptoPass);
-      appData = json.decode(utf8.decode(decryptedBytes));
+      final decryptedBytes = await decryptBytes(encryptedBytes, pass);
+      final Map<String, dynamic> data = json.decode(
+        utf8.decode(decryptedBytes),
+      );
+      return (dataRes.statusCode, fileSha, data);
     } else if (dataRes.statusCode == 404) {
-      appData = {"kids": [], "biometrics": []};
-      serverFileSha = null;
+      return (dataRes.statusCode, null, {"kids": [], "biometrics": []});
     } else {
-      throw Exception("Data download rejected: Code ${dataRes.statusCode}");
+      return (dataRes.statusCode, null, null);
     }
+  }
+
+  Future<void> syncFromGitHub() async {
+    final (code, fileSha, data) = await fetchFromGitHub();
+
+    if (fileSha == null && data == null) {
+      throw Exception("Data download rejected: Code $code");
+    }
+
+    if (fileSha != null) {
+      serverFileSha = fileSha;
+    }
+    if (data != null) {
+      appData = data;
+    }
+
     await cacheLocally();
   }
 
@@ -167,50 +189,184 @@ class BiometricSyncService with EncryptDecryptService {
     return filtered.sublist(startPosition, endPosition);
   }
 
-  Future<void> pushToGitHub() async {
-    final repo =
-        await _secureStorage.read(
-          key: PreferencesBackupService.keyGitRepoTarget,
-        ) ??
-        "";
-    final token =
-        await _secureStorage.read(
-          key: PreferencesBackupService.keyGitAccessToken,
-        ) ??
-        "";
-    final cryptoPass =
-        await _secureStorage.read(
-          key: PreferencesBackupService.keyGitAesPassword,
-        ) ??
-        "";
+  Future<Response> pushToGitHubWithResponse() async {
+    final (url, headers, pass) = await getTrackerServerInfo();
+    headers["Content-Type"] = "application/json";
 
-    final url = Uri.parse(
-      "https://api.github.com/repos/$repo/contents/$_fileName",
-    );
-    final plainBytes = utf8.encode(json.encode(appData));
+    final Map<String, dynamic> auditLog = await generateAuditPayload();
+    final localData = Map<String, dynamic>.from(appData);
+    localData['metadata'] = auditLog;
+
+    final plainBytes = utf8.encode(json.encode(localData));
     final encryptedBytes = await encryptBytes(
       Uint8List.fromList(plainBytes),
-      cryptoPass,
+      pass,
     );
     final requestBody = {
       "message": "Sync via App Layout Tracker",
       "content": base64Encode(encryptedBytes),
       if (serverFileSha != null) "sha": serverFileSha,
     };
-    final res = await http.put(
+    return await http.put(
       url,
-      headers: {
-        "Authorization": "Bearer $token",
-        "Content-Type": "application/json",
-      },
+      headers: headers,
       body: json.encode(requestBody),
     );
+  }
+
+  Future<void> pushToGitHub() async {
+    final res = await pushToGitHubWithResponse();
+
     if (res.statusCode == 200 || res.statusCode == 201) {
       serverFileSha = json.decode(res.body)["content"]["sha"];
       await cacheLocally();
+    }
+  }
+
+  Future<void> pushToGitHubWithAutoMerge() async {
+    final res = await pushToGitHubWithResponse();
+
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      serverFileSha = json.decode(res.body)["content"]["sha"];
+      await cacheLocally();
+    } else if (res.statusCode == 409) {
+      final (code, serverFileSha, serverData) = await fetchFromGitHub();
+
+      if ((serverFileSha == null && serverData == null) || serverData == null) {
+        throw Exception('Failed to pull latest version of $_fileName: $code');
+      }
+
+      final conflicts = processConflicts(appData, serverData, {
+        'kids': 'id',
+        'biometrics': 'entry_id',
+      });
+
+      if (conflicts.isNotEmpty) {
+        throw ConcurrentModificationException(conflicts);
+      }
     } else {
       throw Exception("Push error: ${res.body}");
     }
+  }
+
+  List<SheetConflict> processConflicts(
+    Map<String, dynamic> localAppData,
+    Map<String, dynamic> serverAppData,
+    Map<String, String> dataKeyToId,
+  ) {
+    List<SheetConflict> conflicts = [];
+
+    for (var entry in dataKeyToId.entries) {
+      final List<Map<String, dynamic>> mergedData = [];
+      final List<Map<String, dynamic>> locData = localAppData[entry.key] ?? [];
+      final List<Map<String, dynamic>> servData =
+          serverAppData[entry.key] ?? [];
+
+      int i = 0;
+      int j = 0;
+      while (i < locData.length && j < servData.length) {
+        final locItem = locData[i];
+        final servItem = servData[j];
+
+        if (locItem[entry.value] == servItem[entry.value]) {
+          // The two items are same so compare all fields and values and merge
+          mergedData.add(locItem);
+          i++;
+          j++;
+
+          SheetRowEditedConflict sheetConflict = SheetRowEditedConflict(
+            locItem,
+            entry.key,
+            entry.value,
+          );
+
+          final allFields = {...servItem.keys, ...locItem.keys}
+            ..remove(entry.key);
+          for (var field in allFields) {
+            final sVal = servItem[field]?.toString() ?? "";
+            final lVal = locItem[field]?.toString() ?? "";
+
+            if (sVal != lVal) {
+              sheetConflict.addCellConflict(
+                CellConflict(
+                  columnName: field,
+                  localValue: lVal,
+                  incomingValue: sVal,
+                ),
+              );
+            }
+          }
+
+          if (sheetConflict.conflicts.isNotEmpty) {
+            conflicts.add(sheetConflict);
+          }
+        } else {
+          // The two items are different so add whichever is latest
+
+          DateTime? locDate = DateTime.tryParse(locItem['Date']);
+          DateTime? servDate = DateTime.tryParse(servItem['Date']);
+          bool addLocItem = false;
+          bool addServItem = false;
+
+          // Both have valid date so add whichever is latest
+          if (locDate != null && servDate != null) {
+            if (locDate.isAfter(servDate)) {
+              addLocItem = true;
+            } else {
+              addServItem = true;
+            }
+          } else {
+            if (servDate != null) {
+              // If servDate is valid locDate can't be, so add servItem
+              addServItem = true;
+            } else {
+              // Whether locDate is null or not we add locItem, since
+              // servDate is confirmed to be null at this point.
+              addLocItem = true;
+            }
+          }
+
+          if (addLocItem) {
+            mergedData.add(locItem);
+            i++;
+            conflicts.add(
+              SheetRowDeletedConflict(
+                locItem,
+                entry.key,
+                entry.value,
+                () => mergedData.remove(locItem),
+              ),
+            );
+          } else if (addServItem) {
+            mergedData.add(servItem);
+            j++;
+            conflicts.add(
+              SheetRowAddedConflict(
+                servItem,
+                entry.key,
+                entry.value,
+                () => mergedData.remove(servItem),
+              ),
+            );
+          }
+        }
+      }
+
+      while (i < locData.length) {
+        mergedData.add(locData[i]);
+        i++;
+      }
+
+      while (j < servData.length) {
+        mergedData.add(servData[j]);
+        j++;
+      }
+
+      // Now replace the original array with new merged array
+      localAppData[entry.key] = mergedData;
+    }
+
+    return conflicts;
   }
 
   Map<String, dynamic> evaluateRule(

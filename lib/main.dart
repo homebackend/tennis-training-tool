@@ -30,7 +30,7 @@ Future<void> main() async {
     androidNotificationIcon: 'drawable/ic_bg_audio_icon',
   );
 
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+  if (isDesktopPlatform()) {
     await windowManager.ensureInitialized();
 
     WindowOptions windowOptions = const WindowOptions(

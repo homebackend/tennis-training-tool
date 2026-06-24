@@ -12,6 +12,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../services/biometric_sync_service.dart';
 import '../services/biometric_table_source.dart';
+import '../tool.dart';
 import 'biometric_dialogs.dart';
 
 class TrackerDataGrid extends StatefulWidget {
@@ -74,8 +75,7 @@ class _TrackerDataGridState extends State<TrackerDataGrid> {
               (newData) {
                 newData["kid_id"] = widget.activeKid["id"];
                 newData["sheet_id"] = widget.sheetId;
-                newData["entry_id"] = DateTime.now().millisecondsSinceEpoch
-                    .toString();
+                newData["entry_id"] = getNewUuid();
                 for (var col in widget.columns) {
                   if (col["type"] == "computed") {
                     newData[col["id"]] = widget.syncService.computeFormulaValue(
