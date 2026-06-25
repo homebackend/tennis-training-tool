@@ -12,13 +12,8 @@ import '../services/tracker_sync_service.dart';
 
 class TrackerConflictResolutionDialog extends StatefulWidget {
   final SheetConflict conflict;
-  final void Function() onResolved;
 
-  const TrackerConflictResolutionDialog(
-    this.conflict,
-    this.onResolved, {
-    super.key,
-  });
+  const TrackerConflictResolutionDialog(this.conflict, {super.key});
 
   @override
   State<TrackerConflictResolutionDialog> createState() =>
@@ -94,11 +89,93 @@ class _TrackerConflictResolutionDialogState
     ),
   ];
 
+  DataRow _getDataRow(
+    SheetRowEditedConflict conflict,
+    String field,
+    String value,
+  ) => DataRow(
+    cells: [
+      DataCell(Text(field, style: const TextStyle(fontSize: 12))),
+      if (conflict.conflicts.containsKey(field)) ...[
+        DataCell(
+          InkWell(
+            onTap: () => setState(
+              () => _controllers[field]!.text =
+                  conflict.conflicts[field]!.localValue,
+            ),
+            child: Text(
+              conflict.conflicts[field]!.localValue,
+              style: const TextStyle(
+                color: Colors.blue,
+                fontSize: 13,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ),
+        DataCell(
+          InkWell(
+            onTap: () => setState(
+              () => _controllers[field]!.text =
+                  conflict.conflicts[field]!.incomingValue,
+            ),
+            child: Text(
+              conflict.conflicts[field]!.incomingValue,
+              style: const TextStyle(
+                color: Colors.red,
+                fontSize: 13,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ),
+        DataCell(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: TextField(
+              controller: _controllers[field],
+              maxLines: null,
+              decoration: const InputDecoration(
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                border: OutlineInputBorder(),
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+        ),
+      ],
+      if (!conflict.conflicts.containsKey(field)) ...[
+        DataCell(
+          Text(
+            value,
+            style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
+          ),
+        ),
+        DataCell(
+          Text(
+            value,
+            style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
+          ),
+        ),
+        DataCell(
+          Text(
+            value,
+            style: const TextStyle(color: Colors.green, fontSize: 13),
+          ),
+        ),
+      ],
+    ],
+  );
+
   List<Widget> _showRowEdited(SheetRowEditedConflict conflict) => [
     const Padding(
       padding: EdgeInsets.only(bottom: 12.0),
       child: Text(
-        "Review cell values below. Column 3 can be edited before saving.",
+        "Review cell values below. Edit values in 'Output Choice' column if required.",
+        softWrap: true,
         style: TextStyle(
           fontSize: 12,
           color: Colors.grey,
@@ -132,65 +209,14 @@ class _TrackerConflictResolutionDialogState
           ),
         ),
       ],
-      rows: widget.conflict.row.entries
-          .map(
-            (entry) => DataRow(
-              cells: [
-                DataCell(Text(entry.key, style: const TextStyle(fontSize: 12))),
-                if (conflict.conflicts.containsKey(entry.key)) ...[
-                  DataCell(
-                    Text(
-                      conflict.conflicts[entry.key]!.localValue,
-                      style: const TextStyle(color: Colors.blue, fontSize: 13),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      conflict.conflicts[entry.key]!.incomingValue,
-                      style: const TextStyle(color: Colors.red, fontSize: 13),
-                    ),
-                  ),
-                  DataCell(
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                      child: TextField(
-                        controller: _controllers[entry.key],
-                        decoration: const InputDecoration(
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          border: OutlineInputBorder(),
-                        ),
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  ),
-                ],
-                if (!conflict.conflicts.containsKey(entry.key)) ...[
-                  DataCell(
-                    Text(
-                      entry.value,
-                      style: const TextStyle(color: Colors.blue, fontSize: 13),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      entry.value,
-                      style: const TextStyle(color: Colors.red, fontSize: 13),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      entry.value,
-                      style: const TextStyle(color: Colors.red, fontSize: 13),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          )
-          .toList(),
+      rows: [
+        ...conflict.row.entries.map(
+          (entry) => _getDataRow(conflict, entry.key, entry.value),
+        ),
+        ...conflict.conflicts.keys
+            .where((key) => !conflict.row.containsKey(key))
+            .map((field) => _getDataRow(conflict, field, '')),
+      ],
     ),
   ];
 
@@ -208,23 +234,21 @@ class _TrackerConflictResolutionDialogState
           ),
         ],
       ),
-      content: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.9,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: 700,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: widget.conflict is SheetRowEditedConflict
-                  ? _showRowEdited(widget.conflict as SheetRowEditedConflict)
-                  : _showRowAddedDeleted(),
-            ),
-          ),
+      content: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: widget.conflict is SheetRowEditedConflict
+              ? _showRowEdited(widget.conflict as SheetRowEditedConflict)
+              : _showRowAddedDeleted(),
         ),
       ),
       actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel Commit'),
+        ),
         if (widget.conflict is SheetRowEditedConflict)
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -236,9 +260,17 @@ class _TrackerConflictResolutionDialogState
 
               for (var key in c.conflicts.keys) {
                 final controllerValue = _controllers[key]!.text.trim();
-                c.row[key] = controllerValue;
+
+                final cellConflict = c.conflicts[key];
+                if (controllerValue.isEmpty &&
+                    (!cellConflict!.localValuePresent ||
+                        !cellConflict.incomingValuePresent)) {
+                  c.row.remove(key);
+                } else {
+                  c.row[key] = controllerValue;
+                }
               }
-              widget.onResolved();
+              Navigator.of(context).pop(true);
             },
             child: const Text(
               "Save & Next Row",
@@ -258,7 +290,7 @@ class _TrackerConflictResolutionDialogState
                 (widget.conflict as SheetRowDeletedConflict).remove();
               }
 
-              widget.onResolved();
+              Navigator.of(context).pop(true);
             },
             child: const Text(
               "Remove this Item",
@@ -270,7 +302,7 @@ class _TrackerConflictResolutionDialogState
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green.shade800,
             ),
-            onPressed: widget.onResolved,
+            onPressed: () => Navigator.of(context).pop(true),
             child: const Text(
               "Keep this Item",
               style: TextStyle(color: Colors.white),

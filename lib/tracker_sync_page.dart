@@ -405,23 +405,33 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
   Future<void> runSequentialSyncPipeline({int attempt = 1}) async {
     try {
       await _syncService.pushToGitHubWithAutoMerge();
-      _showSnackBar("Committed to Git!");
+      _showSnackBar("Saved tracker data!");
     } catch (e) {
       if (e is ConcurrentModificationException && attempt <= 3) {
-        for (final conflict in e.conflicts) {
-          await showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => TrackerConflictResolutionDialog(
-              conflict,
-              () => Navigator.pop(context),
-            ),
+        if (e.conflicts.isEmpty) {
+          _showSnackBar("Re-trying save (Attempt ${attempt + 1}/3)...");
+        } else {
+          _showSnackBar(
+            "Another user has modified tracker data. Please resolve conflicts ...",
+          );
+
+          for (final conflict in e.conflicts) {
+            final ok = await showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => TrackerConflictResolutionDialog(conflict),
+            );
+
+            if (ok != true) {
+              _showSnackBar('Saving data cancelled!');
+              return;
+            }
+          }
+
+          _showSnackBar(
+            "Thanks for Resolving. Re-trying save (Attempt ${attempt + 1}/3)...",
           );
         }
-
-        _showSnackBar(
-          "Resolutions applied locally. Re-trying commit (Attempt ${attempt + 1}/3)...",
-        );
         await runSequentialSyncPipeline(attempt: attempt + 1);
       } else {
         rethrow;
