@@ -16,10 +16,10 @@ import 'tracker_sync_service.dart';
 
 class PreferencesBackupService {
   static final keyPdfDownloadUrl = 'pdf_download_url';
-  static final keyPdfEncryptionPassword = 'pdf_encryption_password';
-  static final keyGitRepoTarget = 'git_repo_target';
-  static final keyGitAccessToken = 'git_access_token';
-  static final keyGitAesPassword = 'git_aes_password';
+  static final keyScheduleYamlUrl = 'schedule_yaml_url';
+  static final keyGitRepo = 'git_repo';
+  static final keyGitToken = 'git_token';
+  static final keyEncPwd = 'encryption_token';
 
   final FlutterSecureStorage _secureStorage;
 
@@ -27,19 +27,20 @@ class PreferencesBackupService {
 
   Future<String?> exportSystemPreferences() async {
     try {
+      final pdfUrl = await _secureStorage.read(key: keyPdfDownloadUrl);
+      final scheduleUrl = await _secureStorage.read(key: keyScheduleYamlUrl);
+      final gitRepo = await _secureStorage.read(key: keyGitRepo);
+      final gitToken = await _secureStorage.read(key: keyGitToken);
+      final encryptionPassword = await _secureStorage.read(key: keyEncPwd);
+
       final Map<String, dynamic> configBackup = {
-        "backup_version": "2026.3",
+        "backup_version": "2026.4",
         "timestamp": DateTime.now().toIso8601String(),
-
-        "pdf_url": await _secureStorage.read(key: keyPdfDownloadUrl) ?? "",
-        "pdf_password":
-            await _secureStorage.read(key: keyPdfEncryptionPassword) ?? "",
-
-        "git_json_repo": await _secureStorage.read(key: keyGitRepoTarget) ?? "",
-        "git_json_token":
-            await _secureStorage.read(key: keyGitAccessToken) ?? "",
-        "git_json_password":
-            await _secureStorage.read(key: keyGitAesPassword) ?? "",
+        keyPdfDownloadUrl: pdfUrl,
+        keyScheduleYamlUrl: scheduleUrl,
+        keyGitRepo: gitRepo,
+        keyGitToken: gitToken,
+        keyEncPwd: encryptionPassword,
       };
 
       final String jsonString = json.encode(configBackup);
@@ -76,36 +77,16 @@ class PreferencesBackupService {
           await selectedFile.readAsString(),
         );
 
-        if (config.containsKey("pdf_url")) {
-          await _secureStorage.write(
-            key: keyPdfDownloadUrl,
-            value: config["pdf_url"],
-          );
-        }
-        if (config.containsKey("pdf_password")) {
-          await _secureStorage.write(
-            key: keyPdfEncryptionPassword,
-            value: config["pdf_password"],
-          );
-        }
-
-        if (config.containsKey("git_json_repo")) {
-          await _secureStorage.write(
-            key: keyGitRepoTarget,
-            value: config["git_json_repo"],
-          );
-        }
-        if (config.containsKey("git_json_token")) {
-          await _secureStorage.write(
-            key: keyGitAccessToken,
-            value: config["git_json_token"],
-          );
-        }
-        if (config.containsKey("git_json_password")) {
-          await _secureStorage.write(
-            key: keyGitAesPassword,
-            value: config["git_json_password"],
-          );
+        for (final key in [
+          keyPdfDownloadUrl,
+          keyGitRepo,
+          keyGitToken,
+          keyScheduleYamlUrl,
+          keyEncPwd,
+        ]) {
+          if (config.containsKey(key)) {
+            await _secureStorage.write(key: key, value: config[key]);
+          }
         }
 
         TrackerSyncService.globalResyncTrigger.add(null);

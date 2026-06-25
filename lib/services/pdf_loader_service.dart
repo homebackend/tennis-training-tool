@@ -67,7 +67,7 @@ mixin PdfLoaderService implements EncryptDecryptService {
         key: PreferencesBackupService.keyPdfDownloadUrl,
       );
       final p = await secureStorage.read(
-        key: PreferencesBackupService.keyPdfEncryptionPassword,
+        key: PreferencesBackupService.keyPdfDownloadUrl,
       );
       if (u != null && p != null) {
         _syncEncryptedDocument(u, p, silentCheck: true);
@@ -141,7 +141,7 @@ mixin PdfLoaderService implements EncryptDecryptService {
       key: PreferencesBackupService.keyPdfDownloadUrl,
     );
     final savedPassword = await secureStorage.read(
-      key: PreferencesBackupService.keyPdfEncryptionPassword,
+      key: PreferencesBackupService.keyEncPwd,
     );
 
     if (savedUrl != null && savedPassword != null) {
@@ -188,13 +188,14 @@ mixin PdfLoaderService implements EncryptDecryptService {
 
   Future<void> saveConfigAndFetch(String url, String password) async {
     if (url.isEmpty || password.isEmpty) return;
+    TrackerSyncService.globalResyncTrigger.add(null);
     setState(() => isLoading = true);
     await secureStorage.write(
       key: PreferencesBackupService.keyPdfDownloadUrl,
       value: url,
     );
     await secureStorage.write(
-      key: PreferencesBackupService.keyPdfEncryptionPassword,
+      key: PreferencesBackupService.keyEncPwd,
       value: password,
     );
 
