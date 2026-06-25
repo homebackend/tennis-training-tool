@@ -15,6 +15,7 @@ import 'pages/debug_sync_page.dart';
 import 'pages/schedule_page.dart';
 import 'pages/tracker_sync_page.dart';
 import 'pages/pdf_viewer_page.dart';
+import 'services/preferences_backup_service.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -24,6 +25,7 @@ class MainNavigation extends StatefulWidget {
 }
 
 class _MainNavigationState extends State<MainNavigation> {
+  bool _initialized = false;
   int _currentIndex = 0;
   final FlutterSecureStorage secureStorage = FlutterSecureStorage();
   late final List<Widget> _pages;
@@ -38,10 +40,21 @@ class _MainNavigationState extends State<MainNavigation> {
       TrackerSyncPage(secureStorage),
       DebugSyncPage(),
     ];
+
+    _upgrade();
+  }
+
+  Future<void> _upgrade() async {
+    await PreferencesBackupService(secureStorage).upgradePreferences();
+    setState(() => _initialized = true);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      return CircularProgressIndicator();
+    }
+
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
