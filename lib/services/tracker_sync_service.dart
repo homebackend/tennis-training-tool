@@ -9,7 +9,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_common/flutter_common.dart';
@@ -24,13 +24,18 @@ import 'preferences_backup_service.dart';
 class CellConflict {
   final String columnName;
   final String localValue;
+  final bool localValuePresent;
   final String incomingValue;
+  final bool incomingValuePresent;
 
   CellConflict({
     required this.columnName,
-    required this.localValue,
-    required this.incomingValue,
-  });
+    required String? localValue,
+    required String? incomingValue,
+  }) : localValue = localValue ?? '',
+       localValuePresent = localValue != null,
+       incomingValue = incomingValue ?? '',
+       incomingValuePresent = incomingValue != null;
 }
 
 sealed class SheetConflict {
@@ -280,9 +285,7 @@ class TrackerSyncService with EncryptDecryptService {
         'biometrics': 'entry_id',
       });
 
-      if (conflicts.isNotEmpty) {
-        throw ConcurrentModificationException(conflicts);
-      }
+      throw ConcurrentModificationException(conflicts);
     } else {
       throw Exception("Push error: ${res.body}");
     }
@@ -329,10 +332,10 @@ class TrackerSyncService with EncryptDecryptService {
           );
 
           final allFields = {...servItem.keys, ...locItem.keys}
-            ..remove(entry.key);
+            ..remove(entry.value);
           for (var field in allFields) {
-            final sVal = servItem[field]?.toString() ?? "";
-            final lVal = locItem[field]?.toString() ?? "";
+            final sVal = servItem[field]?.toString();
+            final lVal = locItem[field]?.toString();
 
             if (sVal != lVal) {
               sheetConflict.addCellConflict(
@@ -374,39 +377,72 @@ class TrackerSyncService with EncryptDecryptService {
             }
           }
 
+          // In release mode we don't create SheetRowDeletedConflict
+          // or SheetRowAddedConflict. That is we silently merge.
+          // What this does is that if some user added or deleted
+          // row(s) in between they will be automatically added
+          // always. So effectively delete operation will be ignored.
+          // Considering low probability of this happening, going
+          // ahead with this approach.
           if (addLocItem) {
             mergedData.add(locItem);
             i++;
-            conflicts.add(
-              SheetRowDeletedConflict(
-                locItem,
-                entry.key,
-                entry.value,
-                () => mergedData.remove(locItem),
-              ),
-            );
+            if (kDebugMode) {
+              conflicts.add(
+                SheetRowDeletedConflict(
+                  locItem,
+                  entry.key,
+                  entry.value,
+                  () => mergedData.remove(locItem),
+                ),
+              );
+            }
           } else if (addServItem) {
             mergedData.add(servItem);
             j++;
-            conflicts.add(
-              SheetRowAddedConflict(
-                servItem,
-                entry.key,
-                entry.value,
-                () => mergedData.remove(servItem),
-              ),
-            );
+            if (kDebugMode) {
+              conflicts.add(
+                SheetRowAddedConflict(
+                  servItem,
+                  entry.key,
+                  entry.value,
+                  () => mergedData.remove(servItem),
+                ),
+              );
+            }
           }
         }
       }
 
       while (i < locData.length) {
-        mergedData.add(locData[i]);
+        final locItem = locData[i];
+        mergedData.add(locItem);
+        if (kDebugMode) {
+          conflicts.add(
+            SheetRowDeletedConflict(
+              locItem,
+              entry.key,
+              entry.value,
+              () => mergedData.remove(locItem),
+            ),
+          );
+        }
         i++;
       }
 
       while (j < servData.length) {
-        mergedData.add(servData[j]);
+        final servItem = servData[j];
+        mergedData.add(servItem);
+        if (kDebugMode) {
+          conflicts.add(
+            SheetRowAddedConflict(
+              servItem,
+              entry.key,
+              entry.value,
+              () => mergedData.remove(servItem),
+            ),
+          );
+        }
         j++;
       }
 
