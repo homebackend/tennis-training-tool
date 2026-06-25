@@ -13,26 +13,28 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'services/biometric_sync_service.dart';
+import 'services/tracker_sync_service.dart';
+import 'tool.dart';
 import 'widgets/athlete_analytics_dashboard.dart';
 import 'widgets/biometric_dialogs.dart';
 import 'widgets/athlete_tracker_setup.dart';
 import 'widgets/athlete_selector_bar.dart';
+import 'widgets/tracker_conflict_dialog.dart';
 import 'widgets/tracker_data_grid.dart';
 
-class ExcelSyncPage extends StatefulWidget {
+class TrackerSyncPage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
-  const ExcelSyncPage(this.secureStorage, {super.key});
+  const TrackerSyncPage(this.secureStorage, {super.key});
 
   @override
-  State<ExcelSyncPage> createState() => _ExcelSyncPageState();
+  State<TrackerSyncPage> createState() => _TrackerSyncPageState();
 }
 
-class _ExcelSyncPageState extends State<ExcelSyncPage>
+class _TrackerSyncPageState extends State<TrackerSyncPage>
     with TickerProviderStateMixin {
   static final String _keyLastSelectedKidId = 'last_selected_kid_id';
 
-  late final BiometricSyncService _syncService;
+  late final TrackerSyncService _syncService;
   StreamSubscription<void>? _resyncSubscription;
   final _repoController = TextEditingController();
   final _tokenController = TextEditingController();
@@ -49,15 +51,16 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
   @override
   void initState() {
     super.initState();
-    _syncService = BiometricSyncService(widget.secureStorage);
+    _syncService = TrackerSyncService(widget.secureStorage);
     _loadSession();
 
-    _resyncSubscription = BiometricSyncService.globalResyncTrigger.stream
-        .listen((_) {
-          if (mounted) {
-            _loadSession();
-          }
-        });
+    _resyncSubscription = TrackerSyncService.globalResyncTrigger.stream.listen((
+      _,
+    ) {
+      if (mounted) {
+        _loadSession();
+      }
+    });
   }
 
   Future<void> _loadSession() async {
@@ -248,8 +251,7 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
                 : () async {
                     setState(() => _isSyncing = true);
                     try {
-                      await _syncService.pushToGitHub();
-                      _showSnackBar("Committed to Git!");
+                      await runSequentialSyncPipeline();
                     } catch (e) {
                       _showSnackBar("Error: $e");
                     } finally {
@@ -312,7 +314,7 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
               age,
               gender,
             ) {
-              final nid = DateTime.now().millisecondsSinceEpoch.toString();
+              final nid = getNewUuid();
               setState(() {
                 _syncService.appData["kids"].add({
                   "id": nid,
@@ -398,5 +400,42 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
         ],
       ),
     );
+  }
+
+  Future<void> runSequentialSyncPipeline({int attempt = 1}) async {
+    try {
+      await _syncService.pushToGitHubWithAutoMerge();
+      _showSnackBar("Saved tracker data!");
+    } catch (e) {
+      if (e is ConcurrentModificationException && attempt <= 3) {
+        if (e.conflicts.isEmpty) {
+          _showSnackBar("Re-trying save (Attempt ${attempt + 1}/3)...");
+        } else {
+          _showSnackBar(
+            "Another user has modified tracker data. Please resolve conflicts ...",
+          );
+
+          for (final conflict in e.conflicts) {
+            final ok = await showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => TrackerConflictResolutionDialog(conflict),
+            );
+
+            if (ok != true) {
+              _showSnackBar('Saving data cancelled!');
+              return;
+            }
+          }
+
+          _showSnackBar(
+            "Thanks for Resolving. Re-trying save (Attempt ${attempt + 1}/3)...",
+          );
+        }
+        await runSequentialSyncPipeline(attempt: attempt + 1);
+      } else {
+        rethrow;
+      }
+    }
   }
 }

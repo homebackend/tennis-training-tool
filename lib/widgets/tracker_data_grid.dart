@@ -10,8 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_common/tool.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-import '../services/biometric_sync_service.dart';
-import '../services/biometric_table_source.dart';
+import '../services/tracker_sync_service.dart';
+import '../services/tracker_table_source.dart';
+import '../tool.dart';
 import 'biometric_dialogs.dart';
 
 class TrackerDataGrid extends StatefulWidget {
@@ -20,7 +21,7 @@ class TrackerDataGrid extends StatefulWidget {
   final List columns;
   final Map<String, dynamic> activeKid;
   final PagingState<int, dynamic> pagingState;
-  final BiometricSyncService syncService;
+  final TrackerSyncService syncService;
   final VoidCallback onFetchNextPage;
   final VoidCallback onRowModified;
 
@@ -74,8 +75,7 @@ class _TrackerDataGridState extends State<TrackerDataGrid> {
               (newData) {
                 newData["kid_id"] = widget.activeKid["id"];
                 newData["sheet_id"] = widget.sheetId;
-                newData["entry_id"] = DateTime.now().millisecondsSinceEpoch
-                    .toString();
+                newData["entry_id"] = getNewUuid();
                 for (var col in widget.columns) {
                   if (col["type"] == "computed") {
                     newData[col["id"]] = widget.syncService.computeFormulaValue(
@@ -98,7 +98,7 @@ class _TrackerDataGridState extends State<TrackerDataGrid> {
   );
 
   Widget _contents(List<dynamic> allItems) {
-    final tableSource = BiometricTableSource(
+    final tableSource = TrackerTableSource(
       allRows: allItems,
       columns: widget.columns,
       context: context,
