@@ -35,11 +35,13 @@ class _SchedulePageState extends State<SchedulePage> {
   bool _isConfigured = false;
   List<ScheduleItem> _items = [];
   DateTime _currentDay = DateTime.now();
+  DateTime _currentTime = DateTime.now();
   late DateTime _leftLimit;
   late DateTime _rightLimit;
   Timer? _syncTimer;
-  final _start = DateTime(2026, 6, 22);
-  final _cycleWeeks = 8;
+  Timer? _pageTimer;
+  late DateTime _start;
+  late int _cycleWeeks;
 
   late AudioPlayer _audioPlayer;
   String? _currentPlayingFile;
@@ -56,19 +58,20 @@ class _SchedulePageState extends State<SchedulePage> {
     });
     _init();
     _syncTimer = Timer.periodic(const Duration(hours: 1), (_) => _load());
+    _pageTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      final now = DateTime.now();
+      setState(() {
+        if (now.day != _currentDay.day ||
+            now.month != _currentDay.month ||
+            now.year != _currentDay.year) {
+          _currentDay = now;
+        }
+        _currentTime = now;
+      });
+    });
   }
 
   Future<void> _init() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!prefs.containsKey('tz_lock')) {
-      await prefs.setString('tz_lock', DateTime.now().timeZoneName);
-    }
-    final now = DateTime.now();
-    final daysSince = now.difference(_start).inDays;
-    final cycles = (daysSince / (_cycleWeeks * 7)).floor();
-    final cycleStart = _start.add(Duration(days: cycles * _cycleWeeks * 7));
-    _leftLimit = cycleStart.subtract(Duration(days: _cycleWeeks * 7));
-    _rightLimit = cycleStart.add(Duration(days: _cycleWeeks * 14));
     _load();
 
     _resyncSubscription = TrackerSyncService.globalResyncTrigger.stream.listen((
@@ -76,6 +79,19 @@ class _SchedulePageState extends State<SchedulePage> {
     ) {
       if (mounted) _load();
     });
+  }
+
+  Future<void> _calculateTimes(DateTime start, int cycleWeeks) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!prefs.containsKey('tz_lock')) {
+      await prefs.setString('tz_lock', DateTime.now().timeZoneName);
+    }
+    final now = DateTime.now();
+    final daysSince = now.difference(start).inDays;
+    final cycles = (daysSince / (cycleWeeks * 7)).floor();
+    final cycleStart = start.add(Duration(days: cycles * cycleWeeks * 7));
+    _leftLimit = cycleStart.subtract(Duration(days: cycleWeeks * 7));
+    _rightLimit = cycleStart.add(Duration(days: cycleWeeks * 14));
   }
 
   Future<void> _load() async {
@@ -91,9 +107,12 @@ class _SchedulePageState extends State<SchedulePage> {
     }
     try {
       final text = await ScheduleSyncService(url, pwd).load();
-      final parser = ScheduleParser(startDate: _start, cycleWeeks: _cycleWeeks);
-      final items = parser.parse(text);
+      final parser = ScheduleParser();
+      final (start, cycleWeeks, items) = parser.parse(text);
+      await _calculateTimes(start, cycleWeeks);
       setState(() {
+        _start = start;
+        _cycleWeeks = cycleWeeks;
         _items = items;
         _isConfigured = true;
       });
@@ -196,7 +215,6 @@ class _SchedulePageState extends State<SchedulePage> {
         '${_fmt(slot.timeStart)} - ${_fmt(slot.timeEnd)}'
         '${item.setsAndReps != null ? ' • ${item.setsAndReps}' : ''}';
 
-    // skip untitled wrappers from YAML
     if (item.title == 'Untitled' || item.title.trim().isEmpty) {
       return Column(
         children: children.map((c) => _buildNode(c, depth)).toList(),
@@ -236,7 +254,7 @@ class _SchedulePageState extends State<SchedulePage> {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: ExpansionTile(
-        initiallyExpanded: false, // <-- CLOSED BY DEFAULT
+        initiallyExpanded: false,
         tilePadding: EdgeInsets.only(left: 16 + depth * 8.0, right: 16),
         title: Text(
           item.title,
@@ -351,6 +369,7 @@ class _SchedulePageState extends State<SchedulePage> {
   @override
   void dispose() {
     _syncTimer?.cancel();
+    _pageTimer?.cancel();
     _audioPlayer.dispose();
     _resyncSubscription?.cancel();
     super.dispose();

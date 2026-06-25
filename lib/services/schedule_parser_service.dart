@@ -11,27 +11,42 @@ import 'package:yaml/yaml.dart';
 import '../models/schedule.dart';
 
 class ScheduleParser {
-  final DateTime startDate;
-  final int cycleWeeks;
+  late DateTime startDate;
+  late int cycleWeeks;
 
-  ScheduleParser({required this.startDate, required this.cycleWeeks});
+  ScheduleParser();
 
-  List<ScheduleItem> parse(String yamlText) {
+  (DateTime, int, List<ScheduleItem>) parse(String yamlText) {
     final doc = loadYamlDocument(yamlText);
     return parseDocument(doc);
   }
 
-  List<ScheduleItem> parseDocument(YamlDocument doc) {
+  (DateTime, int, List<ScheduleItem>) parseDocument(YamlDocument doc) {
     final root = doc.contents;
     if (root is! YamlMap || !root.containsKey('schedule')) {
       throw YamlValidationError('Missing top-level "schedule"', _line(root));
     }
+
     final sched = root['schedule'] as YamlMap;
+    final startNode = sched.nodes['start'];
+    if (startNode == null) {
+      throw YamlValidationError('start date is missing', _line(root));
+    }
+    final weeksNode = sched.nodes['repeatWeeks'];
+    if (weeksNode == null) {
+      throw YamlValidationError('repeatWeeks is missing', _line(root));
+    }
+    startDate = DateTime.parse(startNode.toString());
+    cycleWeeks = int.parse(weeksNode.toString());
     final itemsNode = sched.nodes['items'];
     if (itemsNode is! YamlList) {
       throw YamlValidationError('"items" must be a list', _line(itemsNode));
     }
-    return itemsNode.nodes.map((n) => _parseNode(n, null)).toList();
+    return (
+      startDate,
+      cycleWeeks,
+      itemsNode.nodes.map((n) => _parseNode(n, null)).toList(),
+    );
   }
 
   ScheduleItem _parseNode(YamlNode node, ScheduleItem? parent) {
