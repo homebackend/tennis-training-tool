@@ -13,14 +13,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'services/tracker_sync_service.dart';
-import 'tool.dart';
-import 'widgets/athlete_analytics_dashboard.dart';
-import 'widgets/biometric_dialogs.dart';
-import 'widgets/athlete_tracker_setup.dart';
-import 'widgets/athlete_selector_bar.dart';
-import 'widgets/tracker_conflict_dialog.dart';
-import 'widgets/tracker_data_grid.dart';
+import '../services/tracker_sync_service.dart';
+import '../tool.dart';
+import '../widgets/athlete_analytics_dashboard.dart';
+import '../widgets/biometric_dialogs.dart';
+import '../widgets/athlete_tracker_setup.dart';
+import '../widgets/athlete_selector_bar.dart';
+import '../widgets/tracker_conflict_dialog.dart';
+import '../widgets/tracker_data_grid.dart';
 
 class TrackerSyncPage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;

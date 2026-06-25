@@ -90,22 +90,16 @@ class TrackerSyncService with EncryptDecryptService {
 
   Future<(String, String, String)> getServerConfig() async {
     final repo =
-        await _secureStorage.read(
-          key: PreferencesBackupService.keyGitRepoTarget,
-        ) ??
+        await _secureStorage.read(key: PreferencesBackupService.keyGitRepo) ??
         '';
     final token =
-        await _secureStorage.read(
-          key: PreferencesBackupService.keyGitAccessToken,
-        ) ??
+        await _secureStorage.read(key: PreferencesBackupService.keyGitToken) ??
         '';
     final pass =
-        await _secureStorage.read(
-          key: PreferencesBackupService.keyGitAesPassword,
-        ) ??
+        await _secureStorage.read(key: PreferencesBackupService.keyEncPwd) ??
         '';
 
-    return (repo, pass, token);
+    return (repo, token, pass);
   }
 
   Future<(Uri, Map<String, String>, String)> getTrackerServerInfo() async {
@@ -149,15 +143,15 @@ class TrackerSyncService with EncryptDecryptService {
     required String password,
   }) async {
     await _secureStorage.write(
-      key: PreferencesBackupService.keyGitRepoTarget,
+      key: PreferencesBackupService.keyGitRepo,
       value: repo,
     );
     await _secureStorage.write(
-      key: PreferencesBackupService.keyGitAccessToken,
+      key: PreferencesBackupService.keyGitToken,
       value: token,
     );
     await _secureStorage.write(
-      key: PreferencesBackupService.keyGitAesPassword,
+      key: PreferencesBackupService.keyEncPwd,
       value: password,
     );
   }

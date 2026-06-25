@@ -13,9 +13,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'services/encrypt_decryt_service.dart';
-import 'services/pdf_loader_service.dart';
-import 'services/preferences_backup_service.dart';
+import '../services/encrypt_decryt_service.dart';
+import '../services/pdf_loader_service.dart';
+import '../services/preferences_backup_service.dart';
+import '../widgets/setup_page.dart';
 
 class PdfViewerPage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
@@ -31,8 +32,6 @@ class _PdfViewerPageState extends State<PdfViewerPage>
   late final PdfViewerController _pdfController;
   final _outlineNotifier = ValueNotifier<List<PdfOutlineNode>?>(null);
   final _currentPageNotifier = ValueNotifier<int>(1);
-  final _urlController = TextEditingController();
-  final _passwordController = TextEditingController();
 
   bool _isTocVisible = true;
 
@@ -45,10 +44,7 @@ class _PdfViewerPageState extends State<PdfViewerPage>
   }
 
   @override
-  void setUrlPassword(String url, String password) {
-    _urlController.text = url;
-    _passwordController.text = password;
-  }
+  void setUrlPassword(String url, String password) {}
 
   @override
   void setCurrentPageNotifier(int value) {
@@ -74,8 +70,6 @@ class _PdfViewerPageState extends State<PdfViewerPage>
   @override
   void dispose() {
     disposePdfLoader();
-    _urlController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -86,46 +80,12 @@ class _PdfViewerPageState extends State<PdfViewerPage>
     }
 
     if (!isConfigured) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Setup')),
-        body: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              TextField(
-                controller: _urlController,
-                decoration: const InputDecoration(labelText: 'URL'),
-              ),
-              TextField(
-                controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Decryption Key'),
-                obscureText: true,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => saveConfigAndFetch(
-                  _urlController.text.trim(),
-                  _passwordController.text.trim(),
-                ),
-                child: const Text('Load Remote Document'),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: pickLocalDocument,
-                child: const Text('Local File'),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.file_present),
-                label: const Text('Import Configuration File'),
-                onPressed: () async {
-                  final msg = await _backupService.importSystemPreferences();
-                  if (msg != null) _showSnackBar(msg);
-                },
-              ),
-            ],
-          ),
-        ),
+      return SetupPage(
+        widget.secureStorage,
+        saveConfigAndFetch,
+        _backupService,
+        pickLocal: true,
+        pickLocalCopy: pickLocalDocument,
       );
     }
 

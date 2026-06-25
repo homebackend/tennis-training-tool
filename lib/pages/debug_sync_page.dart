@@ -13,8 +13,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import 'services/tracker_sync_service.dart';
-import 'widgets/tracker_conflict_dialog.dart';
+import '../services/tracker_sync_service.dart';
+import '../widgets/tracker_conflict_dialog.dart';
 
 class DebugSyncPage extends StatefulWidget {
   const DebugSyncPage({super.key});

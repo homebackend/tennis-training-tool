@@ -10,10 +10,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import 'audio_player_page.dart';
-import 'debug_sync_page.dart';
-import 'tracker_sync_page.dart';
-import 'pdf_viewer_page.dart';
+import 'pages/audio_player_page.dart';
+import 'pages/debug_sync_page.dart';
+import 'pages/schedule_page.dart';
+import 'pages/tracker_sync_page.dart';
+import 'pages/pdf_viewer_page.dart';
+import 'services/preferences_backup_service.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -23,6 +25,7 @@ class MainNavigation extends StatefulWidget {
 }
 
 class _MainNavigationState extends State<MainNavigation> {
+  bool _initialized = false;
   int _currentIndex = 0;
   final FlutterSecureStorage secureStorage = FlutterSecureStorage();
   late final List<Widget> _pages;
@@ -31,21 +34,40 @@ class _MainNavigationState extends State<MainNavigation> {
   void initState() {
     super.initState();
     _pages = [
+      SchedulePage(secureStorage),
       PdfViewerPage(secureStorage),
       const AudioPlayerPage(),
       TrackerSyncPage(secureStorage),
       DebugSyncPage(),
     ];
+
+    _upgrade();
+  }
+
+  Future<void> _upgrade() async {
+    await PreferencesBackupService(secureStorage).upgradePreferences();
+    setState(() => _initialized = true);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      return CircularProgressIndicator();
+    }
+
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.schedule),
+            label: 'Schedule',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.picture_as_pdf),
             label: 'PDF',
@@ -57,8 +79,9 @@ class _MainNavigationState extends State<MainNavigation> {
           ),
           if (kDebugMode)
             BottomNavigationBarItem(
-              icon: Icon(Icons.add_location_alt),
-              label: 'Athlete Tracker',
+              icon: Icon(Icons.analytics),
+              backgroundColor: Colors.red,
+              label: 'Debug Athlete Tracker',
             ),
         ],
       ),
