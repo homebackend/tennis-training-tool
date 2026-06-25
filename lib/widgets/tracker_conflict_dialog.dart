@@ -10,18 +10,23 @@ import 'package:flutter/material.dart';
 
 import '../services/tracker_sync_service.dart';
 
-class ConflictResolutionDialog extends StatefulWidget {
+class TrackerConflictResolutionDialog extends StatefulWidget {
   final SheetConflict conflict;
   final void Function() onResolved;
 
-  const ConflictResolutionDialog(this.conflict, this.onResolved, {super.key});
+  const TrackerConflictResolutionDialog(
+    this.conflict,
+    this.onResolved, {
+    super.key,
+  });
 
   @override
-  State<ConflictResolutionDialog> createState() =>
-      _ConflictResolutionDialogState();
+  State<TrackerConflictResolutionDialog> createState() =>
+      _TrackerConflictResolutionDialogState();
 }
 
-class _ConflictResolutionDialogState extends State<ConflictResolutionDialog> {
+class _TrackerConflictResolutionDialogState
+    extends State<TrackerConflictResolutionDialog> {
   final Map<String, TextEditingController> _controllers = {};
 
   @override

@@ -17,7 +17,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'biometric_sync_service.dart';
+import 'tracker_sync_service.dart';
 import 'encrypt_decryt_service.dart';
 import 'preferences_backup_service.dart';
 
@@ -45,7 +45,7 @@ mixin PdfLoaderService implements EncryptDecryptService {
   void initPdfLoader() {
     _loadLocalPreferences();
 
-    _pdfResyncSubscription = BiometricSyncService.globalResyncTrigger.stream
+    _pdfResyncSubscription = TrackerSyncService.globalResyncTrigger.stream
         .listen((_) {
           if (mounted) {
             setState(() {

@@ -6,11 +6,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'audio_player_page.dart';
-import 'excel_sync_page.dart';
+import 'debug_sync_page.dart';
+import 'tracker_sync_page.dart';
 import 'pdf_viewer_page.dart';
 
 class MainNavigation extends StatefulWidget {
@@ -31,7 +33,8 @@ class _MainNavigationState extends State<MainNavigation> {
     _pages = [
       PdfViewerPage(secureStorage),
       const AudioPlayerPage(),
-      ExcelSyncPage(secureStorage),
+      TrackerSyncPage(secureStorage),
+      DebugSyncPage(),
     ];
   }
 
@@ -52,6 +55,11 @@ class _MainNavigationState extends State<MainNavigation> {
             icon: Icon(Icons.analytics_outlined),
             label: 'Athlete Tracker',
           ),
+          if (kDebugMode)
+            BottomNavigationBarItem(
+              icon: Icon(Icons.add_location_alt),
+              label: 'Athlete Tracker',
+            ),
         ],
       ),
     );

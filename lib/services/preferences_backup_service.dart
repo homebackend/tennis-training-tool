@@ -12,7 +12,7 @@ import 'dart:typed_data';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:file_picker/file_picker.dart';
 
-import 'biometric_sync_service.dart';
+import 'tracker_sync_service.dart';
 
 class PreferencesBackupService {
   static final keyPdfDownloadUrl = 'pdf_download_url';
@@ -108,7 +108,7 @@ class PreferencesBackupService {
           );
         }
 
-        BiometricSyncService.globalResyncTrigger.add(null);
+        TrackerSyncService.globalResyncTrigger.add(null);
 
         return "Configuration imported! Workspace pipelines successfully refreshed.";
       }

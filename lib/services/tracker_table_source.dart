@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 
 import '../widgets/biometric_dialogs.dart';
 
-class BiometricTableSource extends DataTableSource {
+class TrackerTableSource extends DataTableSource {
   final List<dynamic> allRows;
   final List<dynamic> columns;
   final BuildContext context;
@@ -20,7 +20,7 @@ class BiometricTableSource extends DataTableSource {
   final dynamic activeKid;
   final VoidCallback onRowModified;
 
-  BiometricTableSource({
+  TrackerTableSource({
     required this.allRows,
     required this.columns,
     required this.context,

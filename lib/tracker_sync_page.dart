@@ -13,28 +13,28 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'services/biometric_sync_service.dart';
+import 'services/tracker_sync_service.dart';
 import 'tool.dart';
 import 'widgets/athlete_analytics_dashboard.dart';
 import 'widgets/biometric_dialogs.dart';
 import 'widgets/athlete_tracker_setup.dart';
 import 'widgets/athlete_selector_bar.dart';
-import 'widgets/conflict_dialog.dart';
+import 'widgets/tracker_conflict_dialog.dart';
 import 'widgets/tracker_data_grid.dart';
 
-class ExcelSyncPage extends StatefulWidget {
+class TrackerSyncPage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
-  const ExcelSyncPage(this.secureStorage, {super.key});
+  const TrackerSyncPage(this.secureStorage, {super.key});
 
   @override
-  State<ExcelSyncPage> createState() => _ExcelSyncPageState();
+  State<TrackerSyncPage> createState() => _TrackerSyncPageState();
 }
 
-class _ExcelSyncPageState extends State<ExcelSyncPage>
+class _TrackerSyncPageState extends State<TrackerSyncPage>
     with TickerProviderStateMixin {
   static final String _keyLastSelectedKidId = 'last_selected_kid_id';
 
-  late final BiometricSyncService _syncService;
+  late final TrackerSyncService _syncService;
   StreamSubscription<void>? _resyncSubscription;
   final _repoController = TextEditingController();
   final _tokenController = TextEditingController();
@@ -51,15 +51,16 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
   @override
   void initState() {
     super.initState();
-    _syncService = BiometricSyncService(widget.secureStorage);
+    _syncService = TrackerSyncService(widget.secureStorage);
     _loadSession();
 
-    _resyncSubscription = BiometricSyncService.globalResyncTrigger.stream
-        .listen((_) {
-          if (mounted) {
-            _loadSession();
-          }
-        });
+    _resyncSubscription = TrackerSyncService.globalResyncTrigger.stream.listen((
+      _,
+    ) {
+      if (mounted) {
+        _loadSession();
+      }
+    });
   }
 
   Future<void> _loadSession() async {
@@ -411,7 +412,7 @@ class _ExcelSyncPageState extends State<ExcelSyncPage>
           await showDialog(
             context: context,
             barrierDismissible: false,
-            builder: (context) => ConflictResolutionDialog(
+            builder: (context) => TrackerConflictResolutionDialog(
               conflict,
               () => Navigator.pop(context),
             ),
