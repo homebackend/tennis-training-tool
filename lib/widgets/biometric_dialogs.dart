@@ -157,6 +157,10 @@ class BiometricDialogs {
                         ? const TextInputType.numberWithOptions(decimal: true)
                         : TextInputType.datetime,
                     validator: (value) {
+                      if ((col["optional"] ?? false) && col["type"] == "text") {
+                        return null;
+                      }
+
                       if (value == null || value.trim().isEmpty) {
                         return "Field cannot be empty.";
                       }
