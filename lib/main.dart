@@ -41,6 +41,7 @@ Future<void> main() async {
       await windowManager.show();
       await windowManager.focus();
       await windowManager.maximize();
+      await windowManager.setTitle(appName);
     });
   }
 

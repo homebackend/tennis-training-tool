@@ -8,6 +8,7 @@
 
 import 'dart:async';
 import 'dart:developer';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
@@ -78,7 +79,7 @@ class _SchedulePageState extends State<SchedulePage> {
         }
         _currentTime = now;
       });
-      _scrollToLive();
+      if (!_userHasNavigatedAway) _scrollToLive();
     });
   }
 
@@ -122,17 +123,31 @@ class _SchedulePageState extends State<SchedulePage> {
       return;
     }
     try {
-      final text = await ScheduleSyncService(url, pwd, _load).load();
+      final yaml = await ScheduleSyncService(url, pwd, _loadFromYaml).load();
+      _loadFromYaml(yaml);
+    } catch (e) {
+      log('Error: $e');
+      setState(() => _isConfigured = false);
+    }
+  }
+
+  Future<void> _loadFromYaml(String yaml) async {
+    try {
       final parser = ScheduleParser();
-      final (start, cycleWeeks, items) = parser.parse(text);
+      final (start, cycleWeeks, items) = parser.parse(yaml);
       await _calculateTimes(start, cycleWeeks);
       setState(() {
         _start = start;
         _cycleWeeks = cycleWeeks;
         _items = items;
         _isConfigured = true;
+        _itemKeys.clear();
+        _lastLiveId = null;
       });
-      _scrollToLive();
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToLive();
+      });
     } catch (e) {
       log('Error: $e');
       setState(() => _isConfigured = false);
@@ -231,7 +246,9 @@ class _SchedulePageState extends State<SchedulePage> {
 
     final slot = _slotForDay(item);
     final isLive = parentLive || _isLive(item);
-    final itemKey = _itemKeys.putIfAbsent(item.title, () => GlobalKey());
+    final itemKey = depth == 0
+        ? _itemKeys.putIfAbsent(item.title, () => GlobalKey())
+        : null;
     final icon = switch (item.category) {
       'nutrition' => Icons.restaurant_menu_outlined,
       'hydration' => Icons.water_drop_outlined,
@@ -356,7 +373,7 @@ class _SchedulePageState extends State<SchedulePage> {
               ).colorScheme.primaryContainer.withValues(alpha: 0.22)
             : null,
         child: ExpansionTile(
-          initiallyExpanded: false,
+          initiallyExpanded: isLive,
           tilePadding: EdgeInsets.only(left: 16 + depth * 8.0, right: 16),
           title: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -490,6 +507,7 @@ class _SchedulePageState extends State<SchedulePage> {
                   final now = DateTime.now();
                   _currentDay = DateTime(now.year, now.month, now.day);
                 });
+                _scrollToLive();
               },
             ),
             PopupMenuButton<String>(
@@ -579,31 +597,29 @@ class _SchedulePageState extends State<SchedulePage> {
     return now >= _toMin(s.timeStart) && now < _toMin(s.timeEnd);
   }
 
-  ScheduleItem? _findLive(List<ScheduleItem> list, bool parentLive) {
-    for (final it in list.where(_matchesDay)) {
-      final live = parentLive || _isLive(it);
-      if (live && it.children.isEmpty) return it;
-      final child = _findLive(it.children, live);
-      if (child != null) return child;
-    }
-    return null;
+  ScheduleItem? _findTopLive() {
+    final dayItems = _itemsForDay(_currentDay);
+    bool hasLive(ScheduleItem i) => _isLive(i) || i.children.any(hasLive);
+    return dayItems.firstWhereOrNull(hasLive);
   }
 
   void _scrollToLive() {
-    final live = _findLive(_items, false);
+    if (!_isToday()) return;
+    final live = _findTopLive();
     if (live == null) return;
-    if (live.title == _lastLiveId) return; // don't re-scroll
+    if (live.title == _lastLiveId) return;
     _lastLiveId = live.title;
 
-    final key = _itemKeys[live.title];
-    if (key?.currentContext == null) return;
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Scrollable.ensureVisible(
-        key!.currentContext!,
-        duration: const Duration(milliseconds: 350),
-        alignment: 0.15, // a bit below top
-      );
+      final key = _itemKeys[live.title];
+      final ctx = key?.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 350),
+          alignment: 0.0,
+        );
+      }
     });
   }
 
