@@ -58,8 +58,10 @@ class PreferencesBackupService {
 
       if (_keyMappings.containsKey(key)) {
         for (final xKey in _keyMappings[key]!) {
-          log('Deleting $xKey as $key is used now.');
-          await _secureStorage.delete(key: xKey);
+          if (await _secureStorage.containsKey(key: xKey)) {
+            log('Deleting $xKey as $key is used now.');
+            await _secureStorage.delete(key: xKey);
+          }
         }
       }
     }
