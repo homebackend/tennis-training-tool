@@ -603,15 +603,11 @@ class _SchedulePageState extends State<SchedulePage> {
     return dayItems.firstWhereOrNull(hasLive);
   }
 
-  bool _hasLiveDescendant(ScheduleItem it) {
-    return it.children.any((c) => _isLive(c) || _hasLiveDescendant(c));
-  }
-
   void _scrollToLive() {
-    if (!_isToday()) return; // don't scroll on other days
+    if (!_isToday()) return;
     final live = _findTopLive();
     if (live == null) return;
-    if (live.title == _lastLiveId) return; // avoid re-scroll
+    if (live.title == _lastLiveId) return;
     _lastLiveId = live.title;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -621,7 +617,7 @@ class _SchedulePageState extends State<SchedulePage> {
         Scrollable.ensureVisible(
           ctx,
           duration: const Duration(milliseconds: 350),
-          alignment: 0.0, // top of list
+          alignment: 0.0,
         );
       }
     });
