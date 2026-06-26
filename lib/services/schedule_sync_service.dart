@@ -14,14 +14,14 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'encrypt_decryt_service.dart';
-import 'tracker_sync_service.dart';
 
 class ScheduleSyncService with EncryptDecryptService {
   static final keySchedLastmod = 'sched_lastmod';
 
   final String url;
   final String password;
-  ScheduleSyncService(this.url, this.password);
+  final Future<void> Function() loader;
+  ScheduleSyncService(this.url, this.password, this.loader);
 
   Future<String> _loadFromNetwork(bool cacheFileExists) async {
     final prefs = await SharedPreferences.getInstance();
@@ -48,7 +48,7 @@ class ScheduleSyncService with EncryptDecryptService {
           // If cacheFileExists is true that means earlier
           // we loaded data from cache and now new version
           // of cache is available. So notify.
-          TrackerSyncService.globalResyncTrigger.add(null);
+          loader();
         }
         return text;
       }

@@ -117,7 +117,7 @@ class _SchedulePageState extends State<SchedulePage> {
       return;
     }
     try {
-      final text = await ScheduleSyncService(url, pwd).load();
+      final text = await ScheduleSyncService(url, pwd, _load).load();
       final parser = ScheduleParser();
       final (start, cycleWeeks, items) = parser.parse(text);
       await _calculateTimes(start, cycleWeeks);
