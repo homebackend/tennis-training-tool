@@ -28,6 +28,8 @@ class PdfViewerPage extends StatefulWidget {
 
 class _PdfViewerPageState extends State<PdfViewerPage>
     with EncryptDecryptService, PdfLoaderService {
+  static final String keyPdfIsTocVisible = 'pdf_is_toc_visible';
+
   late final PreferencesBackupService _backupService;
   late final PdfViewerController _pdfController;
   final _outlineNotifier = ValueNotifier<List<PdfOutlineNode>?>(null);
@@ -40,7 +42,13 @@ class _PdfViewerPageState extends State<PdfViewerPage>
     super.initState();
     _backupService = PreferencesBackupService(secureStorage);
     _pdfController = PdfViewerController();
+    _init();
     initPdfLoader();
+  }
+
+  Future<void> _init() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    _isTocVisible = prefs.getBool(keyPdfIsTocVisible) ?? true;
   }
 
   @override
@@ -94,7 +102,11 @@ class _PdfViewerPageState extends State<PdfViewerPage>
         title: Text(isCheckingNetwork ? 'Updating...' : 'Tennis Playbook'),
         leading: IconButton(
           icon: Icon(_isTocVisible ? Icons.menu_open : Icons.menu),
-          onPressed: () => setState(() => _isTocVisible = !_isTocVisible),
+          onPressed: () async {
+            SharedPreferences prefs = await SharedPreferences.getInstance();
+            prefs.setBool(keyPdfIsTocVisible, !_isTocVisible);
+            setState(() => _isTocVisible = !_isTocVisible);
+          },
         ),
         actions: [
           if (isCheckingNetwork)

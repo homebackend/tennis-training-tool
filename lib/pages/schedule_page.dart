@@ -31,8 +31,12 @@ class SchedulePage extends StatefulWidget {
 }
 
 class _SchedulePageState extends State<SchedulePage> {
+  static final keySelectedCategory = 'selected_category';
+  static final keyTZLoc = 'tz_lock';
+
   late StreamSubscription<void>? _resyncSubscription;
   bool _isConfigured = false;
+  bool _userHasNavigatedAway = false;
   List<ScheduleItem> _items = [];
   DateTime _currentDay = DateTime.now();
   DateTime _currentTime = DateTime.now();
@@ -42,6 +46,7 @@ class _SchedulePageState extends State<SchedulePage> {
   Timer? _pageTimer;
   late DateTime _start;
   late int _cycleWeeks;
+  String _selectedCategory = 'all';
 
   late AudioPlayer _audioPlayer;
   String? _currentPlayingFile;
@@ -61,9 +66,10 @@ class _SchedulePageState extends State<SchedulePage> {
     _pageTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       final now = DateTime.now();
       setState(() {
-        if (now.day != _currentDay.day ||
-            now.month != _currentDay.month ||
-            now.year != _currentDay.year) {
+        if (!_userHasNavigatedAway &&
+            (now.day != _currentDay.day ||
+                now.month != _currentDay.month ||
+                now.year != _currentDay.year)) {
           _currentDay = now;
         }
         _currentTime = now;
@@ -72,6 +78,11 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   Future<void> _init() async {
+    final prefs = await SharedPreferences.getInstance();
+    final selectedCategory = prefs.getString(keySelectedCategory);
+    if (selectedCategory != null) {
+      setState(() => _selectedCategory = selectedCategory);
+    }
     _load();
 
     _resyncSubscription = TrackerSyncService.globalResyncTrigger.stream.listen((
@@ -83,8 +94,8 @@ class _SchedulePageState extends State<SchedulePage> {
 
   Future<void> _calculateTimes(DateTime start, int cycleWeeks) async {
     final prefs = await SharedPreferences.getInstance();
-    if (!prefs.containsKey('tz_lock')) {
-      await prefs.setString('tz_lock', DateTime.now().timeZoneName);
+    if (!prefs.containsKey(keyTZLoc)) {
+      await prefs.setString(keyTZLoc, DateTime.now().timeZoneName);
     }
     final now = DateTime.now();
     final daysSince = now.difference(start).inDays;
@@ -168,9 +179,11 @@ class _SchedulePageState extends State<SchedulePage> {
     final dayNum = day.weekday;
     return _items
         .where(
-          (it) => it.slots.any(
-            (s) => s.weeks.contains(weekNum) && s.days.contains(dayNum),
-          ),
+          (it) =>
+              it.slots.any(
+                (s) => s.weeks.contains(weekNum) && s.days.contains(dayNum),
+              ) &&
+              _matchesCategory(it),
         )
         .toList()
       ..sort(
@@ -204,62 +217,159 @@ class _SchedulePageState extends State<SchedulePage> {
     ).format(DateTime(0, 1, 1, int.parse(p[0]), int.parse(p[1])));
   }
 
-  Widget _buildNode(ScheduleItem item, int depth) {
+  Widget _buildNode(ScheduleItem item, int depth, bool parentLive) {
     final children = item.children.where(_matchesDay).toList()
       ..sort(
         (a, b) => _slotForDay(a).timeStart.compareTo(_slotForDay(b).timeStart),
       );
 
     final slot = _slotForDay(item);
+    final isLive = parentLive || _isLive(item);
+    final icon = switch (item.category) {
+      'nutrition' => Icons.restaurant_menu_outlined,
+      'hydration' => Icons.water_drop_outlined,
+      'drill' => Icons.sports_tennis_outlined,
+      'exercise' => Icons.directions_run_outlined,
+      'rest' => Icons.bedtime_outlined,
+      _ => Icons.task_alt_outlined,
+    };
     final subtitle =
         '${_fmt(slot.timeStart)} - ${_fmt(slot.timeEnd)}'
-        '${item.setsAndReps != null ? ' • ${item.setsAndReps}' : ''}';
+        '${item.description != null ? ' • ${item.description}' : ''}'
+        '${slot.description != null ? ' • ${slot.description}' : ''}'
+        '${item.setsAndReps != null ? ' • ${item.setsAndReps}' : ''}'
+        '${item.reps != null ? ' • x${item.reps}' : ''}'
+        '${item.durationMin != null ? ' • ${item.durationMin} mins' : ''}';
 
     if (item.title == 'Untitled' || item.title.trim().isEmpty) {
       return Column(
-        children: children.map((c) => _buildNode(c, depth)).toList(),
+        children: children.map((c) => _buildNode(c, depth, isLive)).toList(),
       );
     }
 
     if (children.isEmpty) {
-      return ListTile(
-        contentPadding: EdgeInsets.only(left: 16 + depth * 16.0, right: 16),
-        leading: item.audio != null
-            ? IconButton(
-                icon: Icon(
-                  item.audio == _currentPlayingFile && _audioPlayer.playing
-                      ? Icons.pause_circle_filled
-                      : Icons.play_circle_fill,
+      return Container(
+        decoration: isLive
+            ? BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 4,
+                  ),
                 ),
-                onPressed: () => _handleAudio(item),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.07),
               )
             : null,
-        title: Text(item.title),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final l in item.links)
-              IconButton(
-                icon: Icon(
-                  l.contains('youtu') ? Icons.ondemand_video : Icons.link,
+        child: ListTile(
+          contentPadding: EdgeInsets.only(left: 16 + depth * 16.0, right: 16),
+          leading: item.audio != null
+              ? IconButton(
+                  icon: Icon(
+                    item.audio == _currentPlayingFile && _audioPlayer.playing
+                        ? Icons.pause_circle_filled
+                        : Icons.play_circle_fill,
+                    color: isLive
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                  onPressed: () => _handleAudio(item),
+                )
+              : (isLive
+                    ? const Icon(Icons.circle, size: 10, color: Colors.green)
+                    : null),
+          title: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  color: isLive ? Theme.of(context).colorScheme.primary : null,
                 ),
-                onPressed: () => _openLink(l),
-              ),
-          ],
+                SizedBox(width: 10),
+                Text(
+                  item.title,
+                  style: TextStyle(fontWeight: isLive ? FontWeight.bold : null),
+                ),
+              ],
+            ),
+          ),
+          subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final l in item.links)
+                IconButton(
+                  icon: Icon(
+                    l.contains('youtu') ? Icons.ondemand_video : Icons.link,
+                  ),
+                  onPressed: () => _openLink(l),
+                ),
+            ],
+          ),
         ),
       );
     }
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      elevation: isLive ? 3 : 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: isLive
+            ? BorderSide(
+                color: Theme.of(context).colorScheme.primary,
+                width: 1.2,
+              )
+            : BorderSide.none,
+      ),
+      color: isLive
+          ? Theme.of(
+              context,
+            ).colorScheme.primaryContainer.withValues(alpha: 0.22)
+          : null,
       child: ExpansionTile(
         initiallyExpanded: false,
         tilePadding: EdgeInsets.only(left: 16 + depth * 8.0, right: 16),
-        title: Text(
-          item.title,
-          style: TextStyle(
-            fontWeight: depth == 0 ? FontWeight.bold : FontWeight.w600,
+        title: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              if (isLive)
+                Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: const BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              Icon(
+                icon,
+                color: isLive ? Theme.of(context).colorScheme.primary : null,
+              ),
+              SizedBox(width: 10),
+              Text(
+                item.title,
+                style: TextStyle(
+                  fontWeight: depth == 0 ? FontWeight.bold : FontWeight.w600,
+                  color: isLive ? Theme.of(context).colorScheme.primary : null,
+                ),
+              ),
+              if (item.audio != null)
+                IconButton(
+                  onPressed: () => _handleAudio(item),
+                  icon: Icon(
+                    item.audio == _currentPlayingFile && _audioPlayer.playing
+                        ? Icons.pause
+                        : Icons.play_arrow,
+                  ),
+                ),
+            ],
           ),
         ),
         subtitle: Text(subtitle),
@@ -279,20 +389,7 @@ class _SchedulePageState extends State<SchedulePage> {
                 ),
               ),
             ),
-          if (item.audio != null)
-            ListTile(
-              leading: IconButton(
-                icon: Icon(
-                  item.audio == _currentPlayingFile && _audioPlayer.playing
-                      ? Icons.pause
-                      : Icons.play_arrow,
-                ),
-                onPressed: () => _handleAudio(item),
-              ),
-              title: const Text('Play audio'),
-              dense: true,
-            ),
-          ...children.map((c) => _buildNode(c, depth + 1)),
+          ...children.map((c) => _buildNode(c, depth + 1, isLive)),
         ],
       ),
     );
@@ -326,7 +423,7 @@ class _SchedulePageState extends State<SchedulePage> {
       body: dayItems.isEmpty
           ? const Center(child: Text('Free time / Rest day'))
           : ListView(
-              children: dayItems.map((it) => _buildNode(it, 0)).toList(),
+              children: dayItems.map((it) => _buildNode(it, 0, false)).toList(),
             ),
       bottomNavigationBar: BottomAppBar(
         child: Row(
@@ -335,29 +432,61 @@ class _SchedulePageState extends State<SchedulePage> {
             IconButton(
               icon: const Icon(Icons.chevron_left),
               onPressed: _currentDay.isAfter(_leftLimit)
-                  ? () => setState(
-                      () => _currentDay = _currentDay.subtract(
-                        const Duration(days: 1),
-                      ),
-                    )
+                  ? () {
+                      _userHasNavigatedAway = true;
+                      setState(
+                        () => _currentDay = _currentDay.subtract(
+                          const Duration(days: 1),
+                        ),
+                      );
+                    }
                   : null,
             ),
             IconButton(
               icon: const Icon(Icons.home),
               tooltip: 'Today',
-              onPressed: () => setState(() {
-                final now = DateTime.now();
-                _currentDay = DateTime(now.year, now.month, now.day);
-              }),
+              onPressed: () {
+                _userHasNavigatedAway = false;
+                setState(() {
+                  final now = DateTime.now();
+                  _currentDay = DateTime(now.year, now.month, now.day);
+                });
+              },
+            ),
+            PopupMenuButton<String>(
+              icon: Icon(
+                Icons.filter_list,
+                color: _selectedCategory == 'all'
+                    ? null
+                    : Theme.of(context).colorScheme.primary,
+              ),
+              tooltip: 'Filter by category',
+              onSelected: (v) async {
+                SharedPreferences prefs = await SharedPreferences.getInstance();
+                prefs.setString(keySelectedCategory, v);
+                setState(() => _selectedCategory = v);
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'all',
+                  child: Text('All categories'),
+                ),
+                ..._allCategories().map(
+                  (c) => PopupMenuItem(value: c, child: Text(_pretty(c))),
+                ),
+              ],
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right),
               onPressed: _currentDay.isBefore(_rightLimit)
-                  ? () => setState(
-                      () => _currentDay = _currentDay.add(
-                        const Duration(days: 1),
-                      ),
-                    )
+                  ? () {
+                      _userHasNavigatedAway = true;
+                      setState(
+                        () => _currentDay = _currentDay.add(
+                          const Duration(days: 1),
+                        ),
+                      );
+                    }
                   : null,
             ),
           ],
@@ -374,4 +503,41 @@ class _SchedulePageState extends State<SchedulePage> {
     _resyncSubscription?.cancel();
     super.dispose();
   }
+
+  bool _matchesCategory(ScheduleItem it) {
+    if (_selectedCategory == 'all') return true;
+    return it.category == _selectedCategory;
+  }
+
+  List<String> _allCategories() {
+    final set = <String>{};
+    void collect(ScheduleItem it) {
+      if (it.category != null && it.category!.isNotEmpty) set.add(it.category!);
+      for (final c in it.children) {
+        collect(c);
+      }
+    }
+
+    for (final it in _items) {
+      collect(it);
+    }
+    return set.toList()..sort();
+  }
+
+  bool _isToday() =>
+      _currentDay.year == _currentTime.year &&
+      _currentDay.month == _currentTime.month &&
+      _currentDay.day == _currentTime.day;
+
+  int _toMin(String t) =>
+      int.parse(t.split(':')[0]) * 60 + int.parse(t.split(':')[1]);
+
+  bool _isLive(ScheduleItem it) {
+    if (!_isToday()) return false;
+    final s = _slotForDay(it);
+    final now = _currentTime.hour * 60 + _currentTime.minute;
+    return now >= _toMin(s.timeStart) && now < _toMin(s.timeEnd);
+  }
+
+  String _pretty(String c) => c[0].toUpperCase() + c.substring(1);
 }
