@@ -51,6 +51,10 @@ class _SchedulePageState extends State<SchedulePage> {
   late AudioPlayer _audioPlayer;
   String? _currentPlayingFile;
 
+  final ScrollController _scrollController = ScrollController();
+  final Map<String, GlobalKey> _itemKeys = {};
+  String? _lastLiveId;
+
   @override
   void initState() {
     super.initState();
@@ -74,6 +78,7 @@ class _SchedulePageState extends State<SchedulePage> {
         }
         _currentTime = now;
       });
+      _scrollToLive();
     });
   }
 
@@ -127,6 +132,7 @@ class _SchedulePageState extends State<SchedulePage> {
         _items = items;
         _isConfigured = true;
       });
+      _scrollToLive();
     } catch (e) {
       log('Error: $e');
       setState(() => _isConfigured = false);
@@ -225,6 +231,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
     final slot = _slotForDay(item);
     final isLive = parentLive || _isLive(item);
+    final itemKey = _itemKeys.putIfAbsent(item.title, () => GlobalKey());
     final icon = switch (item.category) {
       'nutrition' => Icons.restaurant_menu_outlined,
       'hydration' => Icons.water_drop_outlined,
@@ -249,6 +256,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
     if (children.isEmpty) {
       return Container(
+        key: itemKey,
         decoration: isLive
             ? BoxDecoration(
                 border: Border(
@@ -264,21 +272,9 @@ class _SchedulePageState extends State<SchedulePage> {
             : null,
         child: ListTile(
           contentPadding: EdgeInsets.only(left: 16 + depth * 16.0, right: 16),
-          leading: item.audio != null
-              ? IconButton(
-                  icon: Icon(
-                    item.audio == _currentPlayingFile && _audioPlayer.playing
-                        ? Icons.pause_circle_filled
-                        : Icons.play_circle_fill,
-                    color: isLive
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
-                  ),
-                  onPressed: () => _handleAudio(item),
-                )
-              : (isLive
-                    ? const Icon(Icons.circle, size: 10, color: Colors.green)
-                    : null),
+          leading: isLive
+              ? const Icon(Icons.circle, size: 10, color: Colors.green)
+              : null,
           title: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -293,6 +289,33 @@ class _SchedulePageState extends State<SchedulePage> {
                   item.title,
                   style: TextStyle(fontWeight: isLive ? FontWeight.bold : null),
                 ),
+                if (item.audio != null)
+                  IconButton(
+                    icon: Icon(
+                      item.audio == _currentPlayingFile && _audioPlayer.playing
+                          ? Icons.pause_circle_filled
+                          : Icons.play_circle_fill,
+                      color: isLive
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    onPressed: () => _handleAudio(item),
+                  ),
+                if (item.audio != null &&
+                    item.audio == _currentPlayingFile &&
+                    _audioPlayer.playing)
+                  IconButton(
+                    icon: Icon(
+                      Icons.stop_circle_outlined,
+                      color: isLive
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    onPressed: () {
+                      _audioPlayer.stop();
+                      _audioPlayer.seek(Duration.zero);
+                    },
+                  ),
               ],
             ),
           ),
@@ -313,84 +336,99 @@ class _SchedulePageState extends State<SchedulePage> {
       );
     }
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      elevation: isLive ? 3 : 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: isLive
-            ? BorderSide(
-                color: Theme.of(context).colorScheme.primary,
-                width: 1.2,
-              )
-            : BorderSide.none,
-      ),
-      color: isLive
-          ? Theme.of(
-              context,
-            ).colorScheme.primaryContainer.withValues(alpha: 0.22)
-          : null,
-      child: ExpansionTile(
-        initiallyExpanded: false,
-        tilePadding: EdgeInsets.only(left: 16 + depth * 8.0, right: 16),
-        title: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: [
-              if (isLive)
-                Container(
-                  width: 8,
-                  height: 8,
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: const BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
+    return Container(
+      key: itemKey,
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        elevation: isLive ? 3 : 1,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: isLive
+              ? BorderSide(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 1.2,
+                )
+              : BorderSide.none,
+        ),
+        color: isLive
+            ? Theme.of(
+                context,
+              ).colorScheme.primaryContainer.withValues(alpha: 0.22)
+            : null,
+        child: ExpansionTile(
+          initiallyExpanded: false,
+          tilePadding: EdgeInsets.only(left: 16 + depth * 8.0, right: 16),
+          title: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                if (isLive)
+                  Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: const BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-              Icon(
-                icon,
-                color: isLive ? Theme.of(context).colorScheme.primary : null,
-              ),
-              SizedBox(width: 10),
-              Text(
-                item.title,
-                style: TextStyle(
-                  fontWeight: depth == 0 ? FontWeight.bold : FontWeight.w600,
+                Icon(
+                  icon,
                   color: isLive ? Theme.of(context).colorScheme.primary : null,
                 ),
-              ),
-              if (item.audio != null)
-                IconButton(
-                  onPressed: () => _handleAudio(item),
-                  icon: Icon(
-                    item.audio == _currentPlayingFile && _audioPlayer.playing
-                        ? Icons.pause
-                        : Icons.play_arrow,
+                SizedBox(width: 10),
+                Text(
+                  item.title,
+                  style: TextStyle(
+                    fontWeight: depth == 0 ? FontWeight.bold : FontWeight.w600,
+                    color: isLive
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
                   ),
                 ),
-            ],
+                if (item.audio != null)
+                  IconButton(
+                    onPressed: () => _handleAudio(item),
+                    icon: Icon(
+                      item.audio == _currentPlayingFile && _audioPlayer.playing
+                          ? Icons.pause
+                          : Icons.play_arrow,
+                    ),
+                  ),
+                if (item.audio != null &&
+                    item.audio == _currentPlayingFile &&
+                    _audioPlayer.playing)
+                  IconButton(
+                    onPressed: () {
+                      _audioPlayer.stop();
+                      _audioPlayer.seek(Duration.zero);
+                    },
+                    icon: Icon(Icons.stop_circle_outlined),
+                  ),
+              ],
+            ),
           ),
-        ),
-        subtitle: Text(subtitle),
-        children: [
-          if (item.description != null)
-            Padding(
-              padding: EdgeInsets.only(
-                left: 16 + depth * 8.0,
-                right: 16,
-                bottom: 4,
-              ),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  item.description!,
-                  style: const TextStyle(color: Colors.black54),
+          subtitle: Text(subtitle),
+          children: [
+            if (item.description != null)
+              Padding(
+                padding: EdgeInsets.only(
+                  left: 16 + depth * 8.0,
+                  right: 16,
+                  bottom: 4,
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    item.description!,
+                    style: const TextStyle(color: Colors.black54),
+                  ),
                 ),
               ),
-            ),
-          ...children.map((c) => _buildNode(c, depth + 1, isLive)),
-        ],
+            ...children.map((c) => _buildNode(c, depth + 1, isLive)),
+          ],
+        ),
       ),
     );
   }
@@ -423,6 +461,7 @@ class _SchedulePageState extends State<SchedulePage> {
       body: dayItems.isEmpty
           ? const Center(child: Text('Free time / Rest day'))
           : ListView(
+              controller: _scrollController,
               children: dayItems.map((it) => _buildNode(it, 0, false)).toList(),
             ),
       bottomNavigationBar: BottomAppBar(
@@ -499,6 +538,7 @@ class _SchedulePageState extends State<SchedulePage> {
   void dispose() {
     _syncTimer?.cancel();
     _pageTimer?.cancel();
+    _scrollController.dispose();
     _audioPlayer.dispose();
     _resyncSubscription?.cancel();
     super.dispose();
@@ -537,6 +577,34 @@ class _SchedulePageState extends State<SchedulePage> {
     final s = _slotForDay(it);
     final now = _currentTime.hour * 60 + _currentTime.minute;
     return now >= _toMin(s.timeStart) && now < _toMin(s.timeEnd);
+  }
+
+  ScheduleItem? _findLive(List<ScheduleItem> list, bool parentLive) {
+    for (final it in list.where(_matchesDay)) {
+      final live = parentLive || _isLive(it);
+      if (live && it.children.isEmpty) return it;
+      final child = _findLive(it.children, live);
+      if (child != null) return child;
+    }
+    return null;
+  }
+
+  void _scrollToLive() {
+    final live = _findLive(_items, false);
+    if (live == null) return;
+    if (live.title == _lastLiveId) return; // don't re-scroll
+    _lastLiveId = live.title;
+
+    final key = _itemKeys[live.title];
+    if (key?.currentContext == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Scrollable.ensureVisible(
+        key!.currentContext!,
+        duration: const Duration(milliseconds: 350),
+        alignment: 0.15, // a bit below top
+      );
+    });
   }
 
   String _pretty(String c) => c[0].toUpperCase() + c.substring(1);

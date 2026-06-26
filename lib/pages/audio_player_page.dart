@@ -159,27 +159,12 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                               : FontWeight.normal,
                         ),
                       ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              isPlaying
-                                  ? Icons.pause_circle
-                                  : Icons.play_circle,
-                            ),
-                            iconSize: 32,
-                            onPressed: () => _handlePlayback(item),
-                          ),
-                          if (isThisItemActive)
-                            IconButton(
-                              icon: const Icon(Icons.stop_circle),
-                              iconSize: 32,
-                              onPressed: () {
-                                _audioPlayer.stop();
-                              },
-                            ),
-                        ],
+                      trailing: IconButton(
+                        icon: Icon(
+                          isPlaying ? Icons.pause_circle : Icons.play_circle,
+                        ),
+                        iconSize: 32,
+                        onPressed: () => _handlePlayback(item),
                       ),
                     );
                   },
@@ -215,7 +200,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
           color: Colors.blueGrey.shade50,
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               IconButton(
                 icon: const Icon(Icons.replay_10),
@@ -255,6 +240,14 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                 icon: Icon(playing ? Icons.pause : Icons.play_arrow),
                 onPressed: () =>
                     playing ? _audioPlayer.pause() : _audioPlayer.play(),
+              ),
+              IconButton(
+                icon: const Icon(Icons.stop_circle),
+                iconSize: 32,
+                onPressed: () {
+                  _audioPlayer.stop();
+                  _audioPlayer.seek(Duration.zero);
+                },
               ),
             ],
           ),
