@@ -303,7 +303,11 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
             kids: _syncService.appData["kids"],
             selectedKidId: _selectedKidId,
             activeKid: activeKid,
-            onKidChanged: (v) {
+            onKidChanged: (v) async {
+              if (v != null) {
+                final prefs = await SharedPreferences.getInstance();
+                prefs.setString(_keyLastSelectedKidId, v);
+              }
               setState(() {
                 _selectedKidId = v;
               });
