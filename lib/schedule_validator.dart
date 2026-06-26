@@ -4,11 +4,6 @@ import 'package:yaml/yaml.dart';
 import 'models/schedule.dart';
 import 'services/schedule_parser_service.dart';
 
-class _Occ {
-  final String start, end, title, path;
-  _Occ(this.start, this.end, this.title, this.path);
-}
-
 void main(List<String> args) async {
   final path = args.isNotEmpty ? args[0] : 'assets/training_schedule.yaml';
   final text = await File(path).readAsString();
