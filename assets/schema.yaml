@@ -86,6 +86,7 @@ sheets:
       - id: "Notes"
         name: "Notes"
         type: "text"
+        optional: true
 
   - id: "weekly"
     name: "Weekly Sheet"

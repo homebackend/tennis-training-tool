@@ -256,7 +256,6 @@ class _TestSync extends TrackerSyncService {
     return (Uri.parse('https://fake'), {'': ''}, 'pass');
   }
 
-  @override
   Future<Map<String, dynamic>> generateAuditPayload() async => {};
   @override
   Future<Uint8List> encryptBytes(Uint8List d, String p) async => d;
