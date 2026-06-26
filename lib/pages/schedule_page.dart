@@ -122,9 +122,18 @@ class _SchedulePageState extends State<SchedulePage> {
       return;
     }
     try {
-      final text = await ScheduleSyncService(url, pwd, _load).load();
+      final yaml = await ScheduleSyncService(url, pwd, _loadFromYaml).load();
+      _loadFromYaml(yaml);
+    } catch (e) {
+      log('Error: $e');
+      setState(() => _isConfigured = false);
+    }
+  }
+
+  Future<void> _loadFromYaml(String yaml) async {
+    try {
       final parser = ScheduleParser();
-      final (start, cycleWeeks, items) = parser.parse(text);
+      final (start, cycleWeeks, items) = parser.parse(yaml);
       await _calculateTimes(start, cycleWeeks);
       setState(() {
         _start = start;

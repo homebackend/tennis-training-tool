@@ -17,21 +17,24 @@ import 'encrypt_decryt_service.dart';
 
 class ScheduleSyncService with EncryptDecryptService {
   static final keySchedLastmod = 'sched_lastmod';
+  static final keySchedEtag = 'sched_etag';
 
   final String url;
   final String password;
-  final Future<void> Function() loader;
+  final Future<void> Function(String yaml) loader;
   ScheduleSyncService(this.url, this.password, this.loader);
 
   Future<String> _loadFromNetwork(bool cacheFileExists) async {
     final prefs = await SharedPreferences.getInstance();
-    final lastMod = prefs.getString(keySchedLastmod);
+    final lastMod = prefs.getString(keySchedLastmod) ?? '';
+    final lastEtag = prefs.getString(keySchedEtag) ?? '';
     try {
       final res = await http.get(
         Uri.parse(url),
-        headers: cacheFileExists && lastMod != null
-            ? {'If-Modified-Since': lastMod}
-            : {},
+        headers: {
+          if (lastEtag.isNotEmpty) 'If-None-Match': lastEtag,
+          if (lastMod.isNotEmpty) 'If-Modified-Since': lastMod,
+        },
       );
 
       final cacheFile = await _cacheFile();
@@ -44,11 +47,13 @@ class ScheduleSyncService with EncryptDecryptService {
         await cacheFile.writeAsString(text);
         final lm = res.headers['last-modified'];
         if (lm != null) await prefs.setString(keySchedLastmod, lm);
+        final etag = res.headers['etag'];
+        if (etag != null) await prefs.setString(keySchedEtag, etag);
         if (cacheFileExists) {
           // If cacheFileExists is true that means earlier
           // we loaded data from cache and now new version
           // of cache is available. So notify.
-          loader();
+          loader(text);
         }
         return text;
       }
@@ -62,13 +67,17 @@ class ScheduleSyncService with EncryptDecryptService {
   }
 
   Future<String> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastMod = prefs.getString(keySchedLastmod) ?? '';
+    final lastEtag = prefs.getString(keySchedEtag) ?? '';
     final cacheFile = await _cacheFile();
-    bool cacheFileExists = cacheFile.existsSync();
+    bool cacheFileExists =
+        cacheFile.existsSync() && (lastMod.isNotEmpty || lastEtag.isNotEmpty);
     if (cacheFileExists) {
-      _loadFromNetwork(cacheFileExists);
+      _loadFromNetwork(true);
       return await cacheFile.readAsString();
     } else {
-      return await _loadFromNetwork(cacheFileExists);
+      return await _loadFromNetwork(false);
     }
   }
 
