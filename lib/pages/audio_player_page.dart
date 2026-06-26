@@ -199,57 +199,61 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
         return Container(
           color: Colors.blueGrey.shade50,
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.replay_10),
-                onPressed: enabled
-                    ? () => _audioPlayer.seek(
-                        _audioPlayer.position - const Duration(seconds: 10),
-                      )
-                    : null,
-              ),
-              StreamBuilder<Duration>(
-                stream: _audioPlayer.createPositionStream(
-                  steps: 20,
-                  minPeriod: const Duration(milliseconds: 200),
-                  maxPeriod: const Duration(milliseconds: 500),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.replay_10),
+                  onPressed: enabled
+                      ? () => _audioPlayer.seek(
+                          _audioPlayer.position - const Duration(seconds: 10),
+                        )
+                      : null,
                 ),
-                builder: (context, snapshot) {
-                  final position = snapshot.data ?? _audioPlayer.position;
-                  final duration = _audioPlayer.duration ?? Duration.zero;
-                  return Text(
-                    "${position.toString().split('.').first} / ${duration.toString().split('.').first}",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontFamily: 'monospace',
-                    ),
-                  );
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.forward_10),
-                onPressed: enabled
-                    ? () => _audioPlayer.seek(
-                        _audioPlayer.position + const Duration(seconds: 10),
-                      )
-                    : null,
-              ),
-              IconButton(
-                icon: Icon(playing ? Icons.pause : Icons.play_arrow),
-                onPressed: () =>
-                    playing ? _audioPlayer.pause() : _audioPlayer.play(),
-              ),
-              IconButton(
-                icon: const Icon(Icons.stop_circle),
-                iconSize: 32,
-                onPressed: () {
-                  _audioPlayer.stop();
-                  _audioPlayer.seek(Duration.zero);
-                },
-              ),
-            ],
+                StreamBuilder<Duration>(
+                  stream: _audioPlayer.createPositionStream(
+                    steps: 20,
+                    minPeriod: const Duration(milliseconds: 200),
+                    maxPeriod: const Duration(milliseconds: 500),
+                  ),
+                  builder: (context, snapshot) {
+                    final position = snapshot.data ?? _audioPlayer.position;
+                    final duration = _audioPlayer.duration ?? Duration.zero;
+                    return Text(
+                      "${position.toString().split('.').first} / ${duration.toString().split('.').first}",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontFamily: 'monospace',
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.forward_10),
+                  onPressed: enabled
+                      ? () => _audioPlayer.seek(
+                          _audioPlayer.position + const Duration(seconds: 10),
+                        )
+                      : null,
+                ),
+                IconButton(
+                  icon: Icon(playing ? Icons.pause : Icons.play_arrow),
+                  onPressed: () =>
+                      playing ? _audioPlayer.pause() : _audioPlayer.play(),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.stop_circle),
+                  iconSize: 32,
+                  onPressed: () {
+                    _audioPlayer.stop();
+                    _audioPlayer.seek(Duration.zero);
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },
