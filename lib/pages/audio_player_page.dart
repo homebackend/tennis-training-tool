@@ -45,6 +45,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
     _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
         _audioPlayer.stop();
+        _audioPlayer.seek(Duration.zero);
       }
     });
   }

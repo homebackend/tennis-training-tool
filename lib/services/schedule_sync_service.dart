@@ -21,10 +21,12 @@ class ScheduleSyncService with EncryptDecryptService {
 
   final String url;
   final String password;
+  final void Function() syncNotifier;
   final Future<void> Function(String yaml) loader;
-  ScheduleSyncService(this.url, this.password, this.loader);
+  ScheduleSyncService(this.url, this.password, this.syncNotifier, this.loader);
 
   Future<String> _loadFromNetwork(bool cacheFileExists) async {
+    syncNotifier();
     final prefs = await SharedPreferences.getInstance();
     final lastMod = prefs.getString(keySchedLastmod) ?? '';
     final lastEtag = prefs.getString(keySchedEtag) ?? '';
