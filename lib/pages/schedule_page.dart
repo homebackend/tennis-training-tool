@@ -47,7 +47,9 @@ class _SchedulePageState extends State<SchedulePage> {
   Timer? _pageTimer;
   late DateTime _start;
   late int _cycleWeeks;
+  late int _currentWeek;
   String _selectedCategory = 'all';
+  bool _syncInProgress = false;
 
   late AudioPlayer _audioPlayer;
   String? _currentPlayingFile;
@@ -109,6 +111,7 @@ class _SchedulePageState extends State<SchedulePage> {
     final cycleStart = start.add(Duration(days: cycles * cycleWeeks * 7));
     _leftLimit = cycleStart.subtract(Duration(days: cycleWeeks * 7));
     _rightLimit = cycleStart.add(Duration(days: cycleWeeks * 14));
+    setState(() => _currentWeek = (daysSince / 7).ceil());
   }
 
   Future<void> _load() async {
@@ -119,15 +122,26 @@ class _SchedulePageState extends State<SchedulePage> {
       key: PreferencesBackupService.keyEncPwd,
     );
     if (url == null || pwd == null) {
-      setState(() => _isConfigured = false);
+      setState(() {
+        _isConfigured = false;
+        _syncInProgress = false;
+      });
       return;
     }
     try {
-      final yaml = await ScheduleSyncService(url, pwd, _loadFromYaml).load();
+      final yaml = await ScheduleSyncService(
+        url,
+        pwd,
+        () => setState(() => _syncInProgress = true),
+        _loadFromYaml,
+      ).load();
       _loadFromYaml(yaml);
     } catch (e) {
       log('Error: $e');
-      setState(() => _isConfigured = false);
+      setState(() {
+        _isConfigured = false;
+        _syncInProgress = false;
+      });
     }
   }
 
@@ -143,6 +157,7 @@ class _SchedulePageState extends State<SchedulePage> {
         _isConfigured = true;
         _itemKeys.clear();
         _lastLiveId = null;
+        _syncInProgress = false;
       });
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -150,7 +165,10 @@ class _SchedulePageState extends State<SchedulePage> {
       });
     } catch (e) {
       log('Error: $e');
-      setState(() => _isConfigured = false);
+      setState(() {
+        _isConfigured = false;
+        _syncInProgress = false;
+      });
     }
   }
 
@@ -258,7 +276,7 @@ class _SchedulePageState extends State<SchedulePage> {
       _ => Icons.task_alt_outlined,
     };
     final subtitle =
-        '${_fmt(slot.timeStart)} - ${_fmt(slot.timeEnd)}'
+        '${slot.timeStart != slot.timeEnd ? '${_fmt(slot.timeStart)} - ${_fmt(slot.timeEnd)}' : _fmt(slot.timeStart)}'
         '${item.description != null ? ' • ${item.description}' : ''}'
         '${slot.description != null ? ' • ${slot.description}' : ''}'
         '${item.setsAndReps != null ? ' • ${item.setsAndReps}' : ''}'
@@ -472,11 +490,30 @@ class _SchedulePageState extends State<SchedulePage> {
     final dayItems = _itemsForDay(_currentDay);
     return Scaffold(
       appBar: AppBar(
-        title: Text(DateFormat('EEE d MMM').format(_currentDay)),
-        actions: [IconButton(icon: const Icon(Icons.sync), onPressed: _load)],
+        title: Text(
+          '${DateFormat('EEE d MMM').format(_currentDay)} (Week #$_currentWeek)',
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(_syncInProgress ? Icons.sync_lock : Icons.sync),
+            onPressed: _syncInProgress ? null : _load,
+          ),
+        ],
       ),
       body: dayItems.isEmpty
-          ? const Center(child: Text('Free time / Rest day'))
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.insert_emoticon,
+                    color: Colors.blueAccent,
+                    size: 40,
+                  ),
+                  Text('Free time / Rest day', style: TextStyle(fontSize: 20)),
+                ],
+              ),
+            )
           : ListView(
               controller: _scrollController,
               children: dayItems.map((it) => _buildNode(it, 0, false)).toList(),
@@ -594,7 +631,13 @@ class _SchedulePageState extends State<SchedulePage> {
     if (!_isToday()) return false;
     final s = _slotForDay(it);
     final now = _currentTime.hour * 60 + _currentTime.minute;
-    return now >= _toMin(s.timeStart) && now < _toMin(s.timeEnd);
+    final ts = _toMin(s.timeStart);
+    final te = _toMin(s.timeEnd);
+    if (te >= ts) {
+      return now >= ts && now < te;
+    } else {
+      return now >= ts || now < te;
+    }
   }
 
   ScheduleItem? _findTopLive() {
