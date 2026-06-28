@@ -6,6 +6,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
@@ -22,8 +23,15 @@ class ScheduleSyncService with EncryptDecryptService {
   final String url;
   final String password;
   final void Function() syncNotifier;
+  final void Function() syncDoneNotifier;
   final Future<void> Function(String yaml) loader;
-  ScheduleSyncService(this.url, this.password, this.syncNotifier, this.loader);
+  ScheduleSyncService(
+    this.url,
+    this.password,
+    this.syncNotifier,
+    this.syncDoneNotifier,
+    this.loader,
+  );
 
   Future<String> _loadFromNetwork(bool cacheFileExists) async {
     syncNotifier();
@@ -76,7 +84,13 @@ class ScheduleSyncService with EncryptDecryptService {
     bool cacheFileExists =
         cacheFile.existsSync() && (lastMod.isNotEmpty || lastEtag.isNotEmpty);
     if (cacheFileExists) {
-      _loadFromNetwork(true);
+      unawaited(
+        _loadFromNetwork(true).catchError((e) async {
+          log('Error during background sync: $e');
+          syncDoneNotifier();
+          return await cacheFile.readAsString();
+        }),
+      );
       return await cacheFile.readAsString();
     } else {
       return await _loadFromNetwork(false);
