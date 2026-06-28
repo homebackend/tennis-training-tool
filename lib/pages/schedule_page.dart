@@ -47,7 +47,6 @@ class _SchedulePageState extends State<SchedulePage> {
   Timer? _pageTimer;
   late DateTime _start;
   late int _cycleWeeks;
-  late int _currentWeek;
   String _selectedCategory = 'all';
   bool _syncInProgress = false;
 
@@ -110,9 +109,11 @@ class _SchedulePageState extends State<SchedulePage> {
     final cycles = (daysSince / (cycleWeeks * 7)).floor();
     final cycleStart = start.add(Duration(days: cycles * cycleWeeks * 7));
     _leftLimit = cycleStart.subtract(Duration(days: cycleWeeks * 7));
-    _rightLimit = cycleStart.add(Duration(days: cycleWeeks * 14));
-    setState(() => _currentWeek = (daysSince / 7).ceil());
+    _rightLimit = cycleStart.add(Duration(days: cycleWeeks * 14 - 1));
   }
+
+  int _getCurrentWeek(DateTime d) =>
+      1 + ((d.difference(_start).inDays) / 7).toInt() % _cycleWeeks;
 
   Future<void> _load() async {
     final url = await widget.secureStorage.read(
@@ -133,6 +134,7 @@ class _SchedulePageState extends State<SchedulePage> {
         url,
         pwd,
         () => setState(() => _syncInProgress = true),
+        () => setState(() => _syncInProgress = false),
         _loadFromYaml,
       ).load();
       _loadFromYaml(yaml);
@@ -491,7 +493,7 @@ class _SchedulePageState extends State<SchedulePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          '${DateFormat('EEE d MMM').format(_currentDay)} (Week #$_currentWeek)',
+          '${DateFormat('EEE d MMM').format(_currentDay)} (Week #${_getCurrentWeek(_currentDay)})',
         ),
         actions: [
           IconButton(
