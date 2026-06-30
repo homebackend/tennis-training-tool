@@ -42,6 +42,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
 
   bool _isLoading = true;
   bool _isSyncing = false;
+  bool _localDataModified = false;
   bool _isConfigured = false;
   String? _selectedKidId;
   TabController? _tabController;
@@ -65,8 +66,9 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
 
   Future<void> _loadSession() async {
     _isConfigured = await _syncService.loadCachedSession();
+    _localDataModified = await _syncService.hasTrackerDataModified();
     if (_isConfigured) {
-      _repoController.text = "Active Workspace Connected";
+      _repoController.text = 'Configured';
       if (_syncService.appData["kids"].isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
         String? selectedKidId = prefs.getString(_keyLastSelectedKidId);
@@ -226,7 +228,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
 
     final activeKid = _syncService.appData["kids"].firstWhere(
       (k) => k["id"] == _selectedKidId,
-      orElse: () => null,
+      orElse: null,
     );
     final sheets = _syncService.schema?["sheets"] as List? ?? [];
 
@@ -243,40 +245,43 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
-          IconButton(
-            icon: const Icon(Icons.cloud_upload),
-            tooltip: 'Commit to GitHub',
-            onPressed: _isSyncing
-                ? null
-                : () async {
-                    setState(() => _isSyncing = true);
-                    try {
-                      await runSequentialSyncPipeline();
-                    } catch (e) {
-                      _showSnackBar("Error: $e");
-                    } finally {
-                      if (mounted) setState(() => _isSyncing = false);
-                    }
-                  },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Sync from GitHub',
-            onPressed: _isSyncing
-                ? null
-                : () async {
-                    setState(() => _isSyncing = true);
-                    try {
-                      await _syncService.syncFromGitHub();
-                      _resetAndRefreshAllViewports();
-                      _showSnackBar("Synced!");
-                    } catch (e) {
-                      _showSnackBar("Error: $e");
-                    } finally {
-                      if (mounted) setState(() => _isSyncing = false);
-                    }
-                  },
-          ),
+          if (_localDataModified)
+            IconButton(
+              icon: const Icon(Icons.cloud_upload),
+              tooltip: 'Commit to GitHub',
+              onPressed: _isSyncing
+                  ? null
+                  : () async {
+                      setState(() => _isSyncing = true);
+                      try {
+                        await runSequentialSyncPipeline();
+                      } catch (e) {
+                        _showSnackBar("Error: $e");
+                      } finally {
+                        if (mounted) setState(() => _isSyncing = false);
+                      }
+                    },
+            ),
+          if (!_localDataModified)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Sync from GitHub',
+              onPressed: _isSyncing
+                  ? null
+                  : () async {
+                      setState(() => _isSyncing = true);
+                      try {
+                        await _syncService.syncFromGitHub();
+                        _resetAndRefreshAllViewports();
+                        _showSnackBar("Synced!");
+                      } catch (e) {
+                        _showSnackBar("Error: $e");
+                      } finally {
+                        if (mounted) setState(() => _isSyncing = false);
+                      }
+                    },
+            ),
+          /*
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Disconnect',
@@ -285,6 +290,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
               setState(() => _isConfigured = false);
             },
           ),
+          */
         ],
         bottom: _tabController != null
             ? TabBar(
@@ -317,9 +323,11 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
               name,
               age,
               gender,
-            ) {
+            ) async {
+              await _syncService.setTrackerDataModified(true);
               final nid = getNewUuid();
               setState(() {
+                _localDataModified = true;
                 _syncService.appData["kids"].add({
                   "id": nid,
                   "name": name,
@@ -335,8 +343,10 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
             onKidEdited: () => BiometricDialogs.showKidForm(
               context,
               activeKid,
-              (name, age, gender) {
+              (name, age, gender) async {
+                await _syncService.setTrackerDataModified(true);
                 setState(() {
+                  _localDataModified = true;
                   activeKid!["name"] = name;
                   activeKid["age"] = age;
                   activeKid["gender"] = gender;
@@ -345,8 +355,10 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
                 _resetAndRefreshAllViewports();
               },
             ),
-            onKidDeleted: () {
+            onKidDeleted: () async {
+              await _syncService.setTrackerDataModified(true);
               setState(() {
+                _localDataModified = true;
                 _syncService.appData["kids"].removeWhere(
                   (k) => k["id"] == _selectedKidId,
                 );
@@ -390,10 +402,13 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
                               ),
                           syncService: _syncService,
                           onFetchNextPage: () => _fetchNextSlice(sid),
-                          onRowModified: _resetAndRefreshAllViewports,
+                          onRowModified: () {
+                            _syncService.setTrackerDataModified(true);
+                            setState(() => _localDataModified = true);
+                            _resetAndRefreshAllViewports();
+                          },
                         );
                       }),
-
                       AthleteAnalyticsDashboard(
                         biometrics: _syncService.appData["biometrics"],
                         kidId: _selectedKidId!,
@@ -406,9 +421,17 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
     );
   }
 
-  Future<void> runSequentialSyncPipeline({int attempt = 1}) async {
+  Future<void> runSequentialSyncPipeline({
+    int attempt = 0,
+    String? retryServerFileSha,
+  }) async {
     try {
-      await _syncService.pushToGitHubWithAutoMerge();
+      await _syncService.pushToGitHubWithAutoMerge(
+        retryServerFileSha: retryServerFileSha,
+      );
+      await _syncService.setTrackerDataModified(false);
+      setState(() => _localDataModified = false);
+      _resetAndRefreshAllViewports();
       _showSnackBar("Saved tracker data!");
     } catch (e) {
       if (e is ConcurrentModificationException && attempt <= 3) {
@@ -436,7 +459,10 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
             "Thanks for Resolving. Re-trying save (Attempt ${attempt + 1}/3)...",
           );
         }
-        await runSequentialSyncPipeline(attempt: attempt + 1);
+        await runSequentialSyncPipeline(
+          attempt: attempt + 1,
+          retryServerFileSha: e.serverFileSha,
+        );
       } else {
         rethrow;
       }
