@@ -211,7 +211,7 @@ class _TrackerConflictResolutionDialogState
       ],
       rows: [
         ...conflict.row.entries.map(
-          (entry) => _getDataRow(conflict, entry.key, entry.value),
+          (entry) => _getDataRow(conflict, entry.key, entry.value.toString()),
         ),
         ...conflict.conflicts.keys
             .where((key) => !conflict.row.containsKey(key))
