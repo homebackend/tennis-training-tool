@@ -16,12 +16,18 @@ class ScheduleParser {
 
   ScheduleParser();
 
-  (DateTime, int, List<ScheduleItem>) parse(String yamlText) {
+  (DateTime, int, List<ScheduleItem>) parse(
+    String yamlText, {
+    bool includeDisabled = true,
+  }) {
     final doc = loadYamlDocument(yamlText);
-    return parseDocument(doc);
+    return parseDocument(doc, includeDisabled: includeDisabled);
   }
 
-  (DateTime, int, List<ScheduleItem>) parseDocument(YamlDocument doc) {
+  (DateTime, int, List<ScheduleItem>) parseDocument(
+    YamlDocument doc, {
+    bool includeDisabled = true,
+  }) {
     final root = doc.contents;
     if (root is! YamlMap || !root.containsKey('schedule')) {
       throw YamlValidationError('Missing top-level "schedule"', _line(root));
@@ -45,11 +51,18 @@ class ScheduleParser {
     return (
       startDate,
       cycleWeeks,
-      itemsNode.nodes.map((n) => _parseNode(n, null)).toList(),
+      itemsNode.nodes
+          .map((n) => _parseNode(n, null, includeDisabled))
+          .whereType<ScheduleItem>()
+          .toList(),
     );
   }
 
-  ScheduleItem _parseNode(YamlNode node, ScheduleItem? parent) {
+  ScheduleItem? _parseNode(
+    YamlNode node,
+    ScheduleItem? parent,
+    bool includeDisabled,
+  ) {
     if (node is YamlScalar) {
       return ScheduleItem(
         title: node.value.toString(),
@@ -58,6 +71,11 @@ class ScheduleParser {
     }
     if (node is! YamlMap) {
       throw YamlValidationError('Invalid item', _line(node));
+    }
+
+    final enabled = node['enabled']?.value as bool? ?? true;
+    if (!includeDisabled && !enabled) {
+      return null;
     }
 
     final title = node['title']?.toString() ?? 'Untitled';
@@ -116,7 +134,6 @@ class ScheduleParser {
             7: 'Sun',
           };
 
-          // 1. make sure every week/day is covered by SOME parent window
           for (final w in weeks) {
             for (final d in days) {
               final ok = parent.slots.any(
@@ -131,7 +148,6 @@ class ScheduleParser {
             }
           }
 
-          // 2. split child across all matching parent windows (inherit time)
           for (final ps in parent.slots) {
             final iw = weeks.where(ps.weeks.contains).toList();
             final id = days.where(ps.days.contains).toList();
@@ -159,7 +175,6 @@ class ScheduleParser {
             );
           }
         } else {
-          // no parent – keep what was given, or default to full day
           slots.add(
             ScheduleSlot(
               weeks,
@@ -172,16 +187,22 @@ class ScheduleParser {
         }
       }
     } else if (parent != null) {
-      slots.addAll(parent.slots); // inherit everything
+      slots.addAll(parent.slots);
     }
 
     final children = <ScheduleItem>[];
     final itemsNode = node.nodes['items'];
     if (itemsNode is YamlList) {
       for (final c in itemsNode.nodes) {
-        children.add(
-          _parseNode(c, ScheduleItem(title: title, slots: slots, children: [])),
+        final childItem = _parseNode(
+          c,
+          ScheduleItem(title: title, slots: slots, children: []),
+          includeDisabled,
         );
+        if (childItem == null) {
+          continue;
+        }
+        children.add(childItem);
       }
     }
 
@@ -189,6 +210,7 @@ class ScheduleParser {
       title: title,
       category: category,
       description: description,
+      enabled: enabled,
       slots: slots,
       children: children,
       durationMin: duration,
@@ -224,7 +246,6 @@ class ScheduleParser {
     return int.parse(p[0]) * 60 + int.parse(p[1]);
   }
 
-  // <-- this is the missing helper
   int? _line(dynamic node) =>
       node is YamlNode ? node.span.start.line + 1 : null;
 }

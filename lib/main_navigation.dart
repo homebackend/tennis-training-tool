@@ -16,6 +16,7 @@ import 'pages/schedule_page.dart';
 import 'pages/tracker_sync_page.dart';
 import 'pages/pdf_viewer_page.dart';
 import 'services/preferences_backup_service.dart';
+import 'widgets/app_setup.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -26,6 +27,7 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   bool _initialized = false;
+  bool _requireSetup = false;
   int _currentIndex = 0;
   final FlutterSecureStorage secureStorage = FlutterSecureStorage();
   late final List<Widget> _pages;
@@ -38,21 +40,57 @@ class _MainNavigationState extends State<MainNavigation> {
       PdfViewerPage(secureStorage),
       const AudioPlayerPage(),
       TrackerSyncPage(secureStorage),
-      DebugSyncPage(),
+      if (kDebugMode) DebugSyncPage(),
     ];
 
-    _upgrade();
+    _initialize();
   }
 
-  Future<void> _upgrade() async {
+  Future<void> _initialize() async {
     await PreferencesBackupService(secureStorage).upgradePreferences();
-    setState(() => _initialized = true);
+    final gitRepo = await secureStorage.read(
+      key: PreferencesBackupService.keyGitRepo,
+    );
+    final gitToken = await secureStorage.read(
+      key: PreferencesBackupService.keyGitToken,
+    );
+    final encryptionPassword = await secureStorage.read(
+      key: PreferencesBackupService.keyEncPwd,
+    );
+    setState(() {
+      _initialized = true;
+      if (gitRepo == null || gitToken == null || encryptionPassword == null) {
+        _requireSetup = true;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     if (!_initialized) {
       return CircularProgressIndicator();
+    }
+
+    if (_requireSetup) {
+      return AppSetup(
+        PreferencesBackupService(secureStorage),
+        (String gitRepo, String gitToken, String password) async {
+          await secureStorage.write(
+            key: PreferencesBackupService.keyGitRepo,
+            value: gitRepo,
+          );
+          await secureStorage.write(
+            key: PreferencesBackupService.keyGitToken,
+            value: gitToken,
+          );
+          await secureStorage.write(
+            key: PreferencesBackupService.keyEncPwd,
+            value: password,
+          );
+          setState(() => _requireSetup = false);
+        },
+        () => setState(() => _requireSetup = false),
+      );
     }
 
     return Scaffold(
@@ -65,7 +103,8 @@ class _MainNavigationState extends State<MainNavigation> {
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.schedule),
+            icon: Icon(Icons.calendar_view_day),
+            activeIcon: Icon(Icons.calendar_view_day_outlined),
             label: 'Schedule',
           ),
           BottomNavigationBarItem(

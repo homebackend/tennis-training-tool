@@ -23,6 +23,7 @@ import '../services/schedule_parser_service.dart';
 import '../services/schedule_sync_service.dart';
 import '../services/tracker_sync_service.dart';
 import '../widgets/setup_page.dart';
+import 'schedule_creator_page.dart';
 
 class SchedulePage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
@@ -49,6 +50,7 @@ class _SchedulePageState extends State<SchedulePage> {
   late int _cycleWeeks;
   String _selectedCategory = 'all';
   bool _syncInProgress = false;
+  String? _currentYaml;
 
   late AudioPlayer _audioPlayer;
   String? _currentPlayingFile;
@@ -149,8 +151,12 @@ class _SchedulePageState extends State<SchedulePage> {
 
   Future<void> _loadFromYaml(String yaml) async {
     try {
+      _currentYaml = yaml;
       final parser = ScheduleParser();
-      final (start, cycleWeeks, items) = parser.parse(yaml);
+      final (start, cycleWeeks, items) = parser.parse(
+        yaml,
+        includeDisabled: false,
+      );
       await _calculateTimes(start, cycleWeeks);
       setState(() {
         _start = start;
@@ -499,6 +505,20 @@ class _SchedulePageState extends State<SchedulePage> {
           IconButton(
             icon: Icon(_syncInProgress ? Icons.sync_lock : Icons.sync),
             onPressed: _syncInProgress ? null : _load,
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit_calendar_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ScheduleCreatorPage(
+                    initialYaml: _currentYaml,
+                    onSave: (newYaml) => _loadFromYaml(newYaml),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

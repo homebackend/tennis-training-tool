@@ -109,7 +109,7 @@ void _printWeekly(List<ScheduleItem> items, int cycleWeeks) {
       if (dayNodes.isEmpty) continue;
 
       print('$weekPad${'├'}─ ${days[d]}');
-      final dayPad = weekPad + '│ ';
+      final dayPad = '$weekPad│ ';
 
       for (var i = 0; i < dayNodes.length; i++) {
         printNode(
