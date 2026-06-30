@@ -97,7 +97,7 @@ class _DebugSyncPageState extends State<DebugSyncPage> {
         ],
         'biometrics': [],
       }
-      ..serverFileSha = 'old';
+      ..appFileSha = 'old';
     runPipeline();
   }
 
@@ -145,7 +145,7 @@ class _DebugSyncPageState extends State<DebugSyncPage> {
         ],
         'biometrics': [],
       }
-      ..serverFileSha = 'old';
+      ..appFileSha = 'old';
     runPipeline();
   }
 
@@ -188,7 +188,7 @@ class _DebugSyncPageState extends State<DebugSyncPage> {
         ],
         'biometrics': [],
       }
-      ..serverFileSha = 'old';
+      ..appFileSha = 'old';
     runPipeline();
   }
 
@@ -232,7 +232,7 @@ class _TestSync extends TrackerSyncService {
   }) : super(storage, client: client);
 
   @override
-  Future<http.Response> pushToGitHubWithResponse() async {
+  Future<http.Response> pushToGitHubWithResponse({String? fileSha}) async {
     // build the exact payload your real code sends
     final payload = Map<String, dynamic>.from(appData);
     payload['metadata'] = {
