@@ -78,7 +78,7 @@ class _TrackerConflictResolutionDialogState
                 DataCell(Text(entry.key, style: const TextStyle(fontSize: 12))),
                 DataCell(
                   Text(
-                    entry.value,
+                    entry.value.toString(),
                     style: const TextStyle(color: Colors.blue, fontSize: 13),
                   ),
                 ),
@@ -235,7 +235,8 @@ class _TrackerConflictResolutionDialogState
         ],
       ),
       content: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+        scrollDirection: Axis.vertical,
+        physics: BouncingScrollPhysics(),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
