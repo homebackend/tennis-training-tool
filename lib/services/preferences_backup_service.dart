@@ -137,12 +137,12 @@ class PreferencesBackupService {
         }
 
         TrackerSyncService.globalResyncTrigger.add(null);
+        return null;
       } else {
         return 'Import failed: No file selected';
       }
     } catch (e) {
       return "Import failed: Invalid configuration template. $e";
     }
-    return null;
   }
 }
