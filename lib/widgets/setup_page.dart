@@ -8,7 +8,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:tennis_training_tool/services/preferences_backup_service.dart';
+
+import '../services/preferences_backup_service.dart';
 
 class SetupPage extends StatefulWidget {
   final bool pickLocal;
