@@ -35,6 +35,7 @@ class ScheduleItem {
 }
 
 class ScheduleSlot {
+  bool enabled;
   final List<int> weeks;
   final List<int> days; // 1=Mon..7=Sun
   final String timeStart;
@@ -46,6 +47,7 @@ class ScheduleSlot {
     this.timeStart,
     this.timeEnd, [
     this.description,
+    this.enabled = true,
   ]);
 }
 

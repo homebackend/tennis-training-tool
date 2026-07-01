@@ -73,7 +73,7 @@ class ScheduleParser {
       throw YamlValidationError('Invalid item', _line(node));
     }
 
-    final enabled = node['enabled']?.value as bool? ?? true;
+    final enabled = node['enabled'] ?? true;
     if (!includeDisabled && !enabled) {
       return null;
     }
@@ -107,6 +107,11 @@ class ScheduleParser {
         final s = sNode as YamlMap;
         if (s.containsKey('weeks')) {
           throw YamlValidationError('Use "week" not "weeks"', _line(s));
+        }
+
+        final enabled = s['enabled'] ?? true;
+        if (!includeDisabled && !enabled) {
+          continue;
         }
 
         final weekRaw = s['week'];
@@ -199,10 +204,10 @@ class ScheduleParser {
           ScheduleItem(title: title, slots: slots, children: []),
           includeDisabled,
         );
-        if (childItem == null) {
-          continue;
+
+        if (childItem != null) {
+          children.add(childItem);
         }
-        children.add(childItem);
       }
     }
 
