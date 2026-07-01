@@ -9,6 +9,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
@@ -23,6 +24,7 @@ import '../services/schedule_parser_service.dart';
 import '../services/schedule_sync_service.dart';
 import '../services/tracker_sync_service.dart';
 import '../widgets/setup_page.dart';
+import 'schedule_creator_page.dart';
 
 class SchedulePage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
@@ -49,6 +51,7 @@ class _SchedulePageState extends State<SchedulePage> {
   late int _cycleWeeks;
   String _selectedCategory = 'all';
   bool _syncInProgress = false;
+  String? _currentYaml;
 
   late AudioPlayer _audioPlayer;
   String? _currentPlayingFile;
@@ -148,6 +151,7 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   Future<void> _loadFromYaml(String yaml) async {
+    _currentYaml = yaml;
     try {
       final parser = ScheduleParser();
       final (start, cycleWeeks, items) = parser.parse(
@@ -517,6 +521,21 @@ class _SchedulePageState extends State<SchedulePage> {
             icon: Icon(_syncInProgress ? Icons.sync_lock : Icons.sync),
             onPressed: _syncInProgress ? null : _load,
           ),
+          if (kDebugMode)
+            IconButton(
+              icon: const Icon(Icons.edit_calendar_outlined),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ScheduleCreatorPage(
+                      initialYaml: _currentYaml,
+                      onSave: (newYaml) => _loadFromYaml(newYaml),
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
       body: dayItems.isEmpty
