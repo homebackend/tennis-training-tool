@@ -10,6 +10,7 @@ class ScheduleItem {
   final String title;
   final String? category;
   final String? description;
+  bool enabled;
   final List<ScheduleSlot> slots;
   final List<ScheduleItem> children;
   final int? durationMin;
@@ -23,6 +24,7 @@ class ScheduleItem {
     this.category,
     this.description,
     required this.slots,
+    this.enabled = true,
     this.children = const [],
     this.durationMin,
     this.reps,
@@ -33,6 +35,7 @@ class ScheduleItem {
 }
 
 class ScheduleSlot {
+  bool enabled;
   final List<int> weeks;
   final List<int> days; // 1=Mon..7=Sun
   final String timeStart;
@@ -44,6 +47,7 @@ class ScheduleSlot {
     this.timeStart,
     this.timeEnd, [
     this.description,
+    this.enabled = true,
   ]);
 }
 

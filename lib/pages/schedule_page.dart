@@ -150,7 +150,10 @@ class _SchedulePageState extends State<SchedulePage> {
   Future<void> _loadFromYaml(String yaml) async {
     try {
       final parser = ScheduleParser();
-      final (start, cycleWeeks, items) = parser.parse(yaml);
+      final (start, cycleWeeks, items) = parser.parse(
+        yaml,
+        includeDisabled: false,
+      );
       await _calculateTimes(start, cycleWeeks);
       setState(() {
         _start = start;
