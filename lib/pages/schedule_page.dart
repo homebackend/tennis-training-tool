@@ -285,11 +285,15 @@ class _SchedulePageState extends State<SchedulePage> {
     };
     final subtitle =
         '${slot.timeStart != slot.timeEnd ? '${_fmt(slot.timeStart)} - ${_fmt(slot.timeEnd)}' : _fmt(slot.timeStart)}'
-        '${item.description != null ? ' • ${item.description}' : ''}'
-        '${slot.description != null ? ' • ${slot.description}' : ''}'
+        '${item.description != null && !item.description!.contains('\n') ? ' • ${item.description}' : ''}'
+        '${slot.description != null && !slot.description!.contains('\n') ? ' • ${slot.description}' : ''}'
         '${item.setsAndReps != null ? ' • ${item.setsAndReps}' : ''}'
         '${item.reps != null ? ' • x${item.reps}' : ''}'
         '${item.durationMin != null ? ' • ${item.durationMin} mins' : ''}';
+    final lines = [
+      ...(item.description ?? '').split('\n'),
+      ...(slot.description ?? '').split('\n'),
+    ].where((r) => r.isNotEmpty);
 
     if (item.title == 'Untitled' || item.title.trim().isEmpty) {
       return Column(
@@ -362,7 +366,17 @@ class _SchedulePageState extends State<SchedulePage> {
               ],
             ),
           ),
-          subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+          subtitle: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(subtitle, style: const TextStyle(fontSize: 12)),
+              if (lines.length > 1)
+                ...lines.map(
+                  (l) => Text('✔ $l', style: const TextStyle(fontSize: 12)),
+                ),
+            ],
+          ),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -567,6 +581,30 @@ class _SchedulePageState extends State<SchedulePage> {
                   _currentDay = DateTime(now.year, now.month, now.day);
                 });
                 _scrollToLive();
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.calendar_month),
+              tooltip: 'Select a date',
+              onPressed: () async {
+                final DateTime? pickedDate = await showDatePicker(
+                  context: context,
+                  initialDate: _currentDay,
+                  firstDate: _leftLimit,
+                  lastDate: _rightLimit,
+                  helpText: 'Select a day to go to',
+                  builder: (context, child) {
+                    return Theme(data: Theme.of(context), child: child!);
+                  },
+                );
+
+                if (pickedDate != null) {
+                  _userHasNavigatedAway = true;
+                  setState(() {
+                    _currentDay = pickedDate;
+                  });
+                  _scrollToLive();
+                }
               },
             ),
             PopupMenuButton<String>(
