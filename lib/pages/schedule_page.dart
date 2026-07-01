@@ -153,7 +153,6 @@ class _SchedulePageState extends State<SchedulePage> {
   Future<void> _loadFromYaml(String yaml) async {
     _currentYaml = yaml;
     try {
-      _currentYaml = yaml;
       final parser = ScheduleParser();
       final (start, cycleWeeks, items) = parser.parse(
         yaml,
