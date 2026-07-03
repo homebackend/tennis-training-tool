@@ -134,9 +134,6 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
       }
     } catch (e) {
       log('Error: $e');
-      setState(() {
-        _syncInProgress = false;
-      });
     }
   }
 
@@ -155,7 +152,6 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
         _items = items;
         _itemKeys.clear();
         _lastLiveId = null;
-        _syncInProgress = false;
       });
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -163,9 +159,6 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
       });
     } catch (e) {
       log('Error: $e');
-      setState(() {
-        _syncInProgress = false;
-      });
     }
   }
 

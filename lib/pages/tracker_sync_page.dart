@@ -63,10 +63,12 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
     _syncService = TrackerSyncService(
       widget.secureStorage,
       await SharedPreferences.getInstance(),
-      () {},
-      () {},
-      () {},
-      (self) async {},
+      () => setState(() => _isSyncing = true),
+      () => setState(() => _isSyncing = false),
+      () => setState(() => _isSyncing = false),
+      (self) async {
+        if (mounted) _resetAndRefreshAllViewports();
+      },
     );
     await _loadSession();
   }
@@ -216,13 +218,10 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
               onPressed: _isSyncing
                   ? null
                   : () async {
-                      setState(() => _isSyncing = true);
                       try {
                         await runSequentialSyncPipeline();
                       } catch (e) {
                         _showSnackBar("Error: $e");
-                      } finally {
-                        if (mounted) setState(() => _isSyncing = false);
                       }
                     },
             ),
@@ -233,15 +232,12 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
               onPressed: _isSyncing
                   ? null
                   : () async {
-                      setState(() => _isSyncing = true);
                       try {
                         await _syncService.syncData();
                         _resetAndRefreshAllViewports();
                         _showSnackBar("Synced!");
                       } catch (e) {
                         _showSnackBar("Error: $e");
-                      } finally {
-                        if (mounted) setState(() => _isSyncing = false);
                       }
                     },
             ),
