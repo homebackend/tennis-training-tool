@@ -188,7 +188,7 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
       final bytes = await getContentsForWrite();
       final res = await pushToGitHubWithResponse(
         bytes,
-        fileSha: retryServerFileSha,
+        fileSha: retryServerFileSha ?? appSha,
       );
 
       if (res.statusCode == 200 || res.statusCode == 201) {
