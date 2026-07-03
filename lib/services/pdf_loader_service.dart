@@ -18,7 +18,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../mixins/github_syncer.dart';
 import 'tracker_sync_service.dart';
 import 'encrypt_decryt_service.dart';
-import 'preferences_backup_service.dart';
 
 mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   static final _keyUseLocalPdfPath = 'use_local_pdf_path';
