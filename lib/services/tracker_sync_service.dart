@@ -484,7 +484,11 @@ class TrackerSyncService with EncryptDecryptService, GitHubSyncer {
   }
 
   Future<void> cacheAppDataLocally() async {
-    await cacheLocally(utf8.encode(json.encode(appData)), appSha ?? '');
+    await cacheLocally(
+      utf8.encode(json.encode(appData)),
+      appSha ?? '',
+      appEtag ?? '',
+    );
   }
 
   dynamic computeFormulaValue(String formula, Map<String, dynamic> rowData) {

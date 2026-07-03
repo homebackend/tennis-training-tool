@@ -9,12 +9,13 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/biometric_dialogs.dart';
+import 'tracker_sync_service.dart';
 
 class TrackerTableSource extends DataTableSource {
   final List<dynamic> allRows;
   final List<dynamic> columns;
   final BuildContext context;
-  final dynamic syncService;
+  final TrackerSyncService syncService;
   final dynamic sheet;
   final dynamic sheetId;
   final dynamic activeKid;
@@ -102,7 +103,7 @@ class TrackerTableSource extends DataTableSource {
                 context,
                 sheet,
                 currentRow,
-                (updated) {
+                (updated) async {
                   currentRow.addAll(updated);
                   for (var col in columns) {
                     if (col["type"] == "computed") {
@@ -112,7 +113,7 @@ class TrackerTableSource extends DataTableSource {
                       );
                     }
                   }
-                  syncService.cacheLocally();
+                  await syncService.cacheAppDataLocally();
                   onRowModified();
                 },
               ),
@@ -122,11 +123,11 @@ class TrackerTableSource extends DataTableSource {
               icon: const Icon(Icons.delete, color: Colors.red, size: 16),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              onPressed: () {
+              onPressed: () async {
                 syncService.appData["biometrics"].removeWhere(
                   (b) => b["entry_id"] == currentRow["entry_id"],
                 );
-                syncService.cacheLocally();
+                await syncService.cacheAppDataLocally();
                 onRowModified();
               },
             ),

@@ -27,7 +27,8 @@ import 'schedule_creator_page.dart';
 
 class SchedulePage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
-  const SchedulePage(this.secureStorage, {super.key});
+  final SharedPreferences sharedPreferences;
+  const SchedulePage(this.secureStorage, this.sharedPreferences, {super.key});
   @override
   State<SchedulePage> createState() => _SchedulePageState();
 }
@@ -85,8 +86,9 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
   }
 
   Future<void> _init() async {
-    final prefs = await SharedPreferences.getInstance();
-    final selectedCategory = prefs.getString(keySelectedCategory);
+    final selectedCategory = widget.sharedPreferences.getString(
+      keySelectedCategory,
+    );
     if (selectedCategory != null) {
       setState(() => _selectedCategory = selectedCategory);
     }
@@ -100,9 +102,11 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
   }
 
   Future<void> _calculateTimes(DateTime start, int cycleWeeks) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!prefs.containsKey(keyTZLoc)) {
-      await prefs.setString(keyTZLoc, DateTime.now().timeZoneName);
+    if (!widget.sharedPreferences.containsKey(keyTZLoc)) {
+      await widget.sharedPreferences.setString(
+        keyTZLoc,
+        DateTime.now().timeZoneName,
+      );
     }
     final now = DateTime.now();
     final daysSince = now.difference(start).inDays;
@@ -119,7 +123,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
     try {
       _syncService = ScheduleSyncService(
         widget.secureStorage,
-        await SharedPreferences.getInstance(),
+        widget.sharedPreferences,
         () => setState(() => _syncInProgress = true),
         () => setState(() => _syncInProgress = false),
         (self) async {
@@ -587,8 +591,10 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
               ),
               tooltip: 'Filter by category',
               onSelected: (v) async {
-                SharedPreferences prefs = await SharedPreferences.getInstance();
-                prefs.setString(keySelectedCategory, v);
+                await widget.sharedPreferences.setString(
+                  keySelectedCategory,
+                  v,
+                );
                 setState(() => _selectedCategory = v);
               },
               itemBuilder: (context) => [

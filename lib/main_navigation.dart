@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'pages/audio_player_page.dart';
 import 'pages/schedule_page.dart';
@@ -33,17 +34,20 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   void initState() {
     super.initState();
-    _pages = [
-      SchedulePage(secureStorage),
-      PdfViewerPage(secureStorage),
-      const AudioPlayerPage(),
-      TrackerSyncPage(secureStorage),
-    ];
 
     _initialize();
   }
 
   Future<void> _initialize() async {
+    SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+
+    _pages = [
+      SchedulePage(secureStorage, sharedPreferences),
+      PdfViewerPage(secureStorage, sharedPreferences),
+      const AudioPlayerPage(),
+      TrackerSyncPage(secureStorage, sharedPreferences),
+    ];
+
     await PreferencesBackupService(secureStorage).upgradePreferences();
     final gitRepo = await secureStorage.read(
       key: PreferencesBackupService.keyGitRepo,
