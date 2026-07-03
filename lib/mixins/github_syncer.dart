@@ -117,8 +117,8 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
     appEtag = etag;
     final cacheFile = await _cacheFile();
     cacheFile.writeAsBytes(bytes);
-    sharedPreferences.setString(keyDocumentSha, sha);
-    sharedPreferences.setString(keyDocumentLastModified, etag);
+    await sharedPreferences.setString(keyDocumentSha, sha);
+    await sharedPreferences.setString(keyDocumentLastModified, etag);
   }
 
   Future<void> _syncFromNetwork(bool background) async {

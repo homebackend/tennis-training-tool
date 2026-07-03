@@ -20,7 +20,8 @@ import '../services/pdf_loader_service.dart';
 
 class PdfViewerPage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
-  const PdfViewerPage(this.secureStorage, {super.key});
+  final SharedPreferences sharedPreferences;
+  const PdfViewerPage(this.secureStorage, this.sharedPreferences, {super.key});
 
   @override
   State<PdfViewerPage> createState() => _PdfViewerPageState();
@@ -65,6 +66,9 @@ class _PdfViewerPageState extends State<PdfViewerPage>
   FlutterSecureStorage get secureStorage => widget.secureStorage;
 
   @override
+  SharedPreferences get sharedPreferences => widget.sharedPreferences;
+
+  @override
   void dispose() {
     disposePdfLoader();
     super.dispose();
@@ -82,8 +86,10 @@ class _PdfViewerPageState extends State<PdfViewerPage>
         leading: IconButton(
           icon: Icon(_isTocVisible ? Icons.menu_open : Icons.menu),
           onPressed: () async {
-            SharedPreferences prefs = await SharedPreferences.getInstance();
-            prefs.setBool(keyPdfIsTocVisible, !_isTocVisible);
+            await widget.sharedPreferences.setBool(
+              keyPdfIsTocVisible,
+              !_isTocVisible,
+            );
             setState(() => _isTocVisible = !_isTocVisible);
           },
         ),
@@ -174,10 +180,10 @@ class _PdfViewerPageState extends State<PdfViewerPage>
                   calculateInitialZoom: (d, c, fit, cover) => cover,
                 ),
                 onViewerReady: (d, c) => _extractTableOfContents(d),
-                onPageChanged: (p) {
+                onPageChanged: (p) async {
                   if (p != null) {
                     _currentPageNotifier.value = p;
-                    sharedPreferences.setInt(
+                    await sharedPreferences.setInt(
                       PdfLoaderService.keyLastPdfPage,
                       p,
                     );

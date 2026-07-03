@@ -24,7 +24,12 @@ import '../widgets/tracker_data_grid.dart';
 
 class TrackerSyncPage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
-  const TrackerSyncPage(this.secureStorage, {super.key});
+  final SharedPreferences sharedPreferences;
+  const TrackerSyncPage(
+    this.secureStorage,
+    this.sharedPreferences, {
+    super.key,
+  });
 
   @override
   State<TrackerSyncPage> createState() => _TrackerSyncPageState();
@@ -62,7 +67,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
   Future<void> _init() async {
     _syncService = TrackerSyncService(
       widget.secureStorage,
-      await SharedPreferences.getInstance(),
+      widget.sharedPreferences,
       () => setState(() => _isSyncing = true),
       () => setState(() => _isSyncing = false),
       () => setState(() => _isSyncing = false),
@@ -77,8 +82,9 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
     await _syncService.initialize();
     _localDataModified = await _syncService.hasSyncDataModified();
     if (_syncService.appData["kids"].isNotEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      String? selectedKidId = prefs.getString(_keyLastSelectedKidId);
+      String? selectedKidId = widget.sharedPreferences.getString(
+        _keyLastSelectedKidId,
+      );
       if (selectedKidId != null &&
           _syncService.appData["kids"].any(
             (kid) => kid["id"] == selectedKidId,
@@ -262,8 +268,10 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
             activeKid: activeKid,
             onKidChanged: (v) async {
               if (v != null) {
-                final prefs = await SharedPreferences.getInstance();
-                prefs.setString(_keyLastSelectedKidId, v);
+                await widget.sharedPreferences.setString(
+                  _keyLastSelectedKidId,
+                  v,
+                );
               }
               setState(() {
                 _selectedKidId = v;

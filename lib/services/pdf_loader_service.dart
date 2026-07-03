@@ -27,7 +27,6 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   static final String keyPdfDocumentSha = 'pdf_document_sha';
   static final String keyPdfLastModified = 'pdf_last_modified';
 
-  late SharedPreferences _sharedPreferences;
   StreamSubscription<void>? _pdfResyncSubscription;
 
   bool isLoading = true;
@@ -41,7 +40,6 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   void setState(VoidCallback fn);
 
   Future<void> initPdfLoader() async {
-    _sharedPreferences = await SharedPreferences.getInstance();
     _loadLocalPreferences();
 
     _pdfResyncSubscription = TrackerSyncService.globalResyncTrigger.stream
@@ -107,9 +105,6 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
       lastSavedPage = 1;
     });
   }
-
-  @override
-  SharedPreferences get sharedPreferences => _sharedPreferences;
 
   @override
   Future<void> syncDataLoader() async {}
