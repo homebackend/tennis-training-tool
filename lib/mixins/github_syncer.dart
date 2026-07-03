@@ -52,6 +52,7 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
   String get keyDocumentSha;
 
   String? appSha;
+  String? appEtag;
 
   bool get isModifiable;
   String get localFileName;
@@ -73,6 +74,10 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
   Timer? _syncTimer;
 
   Future<void> initializeSyncer() async {
+    appSha = sharedPreferences.getString(keyDocumentSha);
+    appEtag = sharedPreferences.getString(keyDocumentLastModified);
+    isModified = sharedPreferences.getBool(keyHasSyncDataModified) ?? false;
+
     await _loadSyncData();
 
     _syncTimer = Timer.periodic(syncDuration, (_) {
@@ -89,11 +94,9 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
   }
 
   Future<void> _loadSyncData() async {
-    final lastMod = sharedPreferences.getString(keyDocumentLastModified) ?? '';
-    final lastSha = sharedPreferences.getString(keyDocumentSha) ?? '';
     final cacheFile = await _cacheFile();
     bool cacheFileExists =
-        cacheFile.existsSync() && (lastMod.isNotEmpty || lastSha.isNotEmpty);
+        cacheFile.existsSync() && appEtag != null && appEtag!.isNotEmpty;
     if (cacheFileExists) {
       unawaited(
         // No edit should be allowed until sync is done
@@ -109,11 +112,13 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
     }
   }
 
-  Future<void> cacheLocally(Uint8List bytes, String sha) async {
+  Future<void> cacheLocally(Uint8List bytes, String sha, String etag) async {
     appSha = sha;
+    appEtag = etag;
     final cacheFile = await _cacheFile();
     cacheFile.writeAsBytes(bytes);
     sharedPreferences.setString(keyDocumentSha, sha);
+    sharedPreferences.setString(keyDocumentLastModified, etag);
   }
 
   Future<void> _syncFromNetwork(bool background) async {
@@ -144,19 +149,18 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
 
     try {
       notifySyncStarted();
-      final lastMod =
-          sharedPreferences.getString(keyDocumentLastModified) ?? '';
-      final documentSha = sharedPreferences.getString(keyDocumentSha) ?? '';
-      final (code, sha, bytes) = await fetchFromGitHub(
+      final cacheFile = await _cacheFile();
+      final lastMod = cacheFile.existsSync() ? appEtag : '';
+      final documentSha = cacheFile.existsSync() ? appSha : '';
+      final (code, sha, etag, bytes) = await fetchFromGitHub(
         lastModified: lastMod,
         documentSha: documentSha,
       );
 
-      final cacheFile = await _cacheFile();
       if (cacheFile.existsSync() && code == 304) {
         await processContentPostLoad(await cacheFile.readAsBytes());
       } else if (code == 200) {
-        await cacheLocally(bytes!, sha!);
+        await cacheLocally(bytes!, sha!, etag!);
         await processContentPostLoad(bytes);
         if (background) {
           // If cacheFileExists is true that means earlier
@@ -193,9 +197,11 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final fileSha = json.decode(res.body)["content"]["sha"].toString();
-        await cacheLocally(bytes, fileSha);
+        final fileEtag = res.headers['etag'] ?? '';
+        await cacheLocally(bytes, fileSha, fileEtag);
       } else if (res.statusCode == 409) {
-        final (code, serverFileSha, serverData) = await fetchFromGitHub();
+        final (code, serverFileSha, serverFileEtag, serverData) =
+            await fetchFromGitHub();
 
         if (serverFileSha == null || serverData == null) {
           throw Exception(
@@ -218,36 +224,43 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
     }
   }
 
-  Future<(int, String?, Uint8List?)> fetchFromGitHub({
+  Future<(int, String?, String?, Uint8List?)> fetchFromGitHub({
     String? lastModified,
     String? documentSha,
   }) async {
-    final (dataUrl, headers, pass) = await _getFileInfoRequestData();
+    final (dataUrl, headers, pass) = await _getFileInfoRequestData(
+      lastModified: lastModified,
+      documentSha: documentSha,
+    );
 
     final dataRes = await client.get(dataUrl, headers: headers);
     if (dataRes.statusCode == 200) {
       final dataBody = json.decode(dataRes.body);
+      final sha = documentSha != null && documentSha.isNotEmpty
+          ? documentSha
+          : dataBody['sha'];
+      final etag = lastModified != null && lastModified.isNotEmpty
+          ? lastModified
+          : dataRes.headers['etag'] ?? '';
       if (dataBody['encoding'] != 'base64' || dataBody['content'] == '') {
         final (blobUrl, headers, pass) = await _getBlobRequestData(
-          documentSha: documentSha != null && documentSha.isNotEmpty
-              ? documentSha
-              : dataBody['sha'],
+          documentSha: sha,
         );
         final blobRes = await client.get(blobUrl, headers: headers);
         if (blobRes.statusCode == 200) {
           final blobBody = json.decode(blobRes.body);
           final (sha, bytes) = await _extractContent(blobBody, pass);
-          return (blobRes.statusCode, sha, bytes);
+          return (blobRes.statusCode, sha, etag, bytes);
         } else {
-          return (blobRes.statusCode, null, null);
+          return (blobRes.statusCode, null, null, null);
         }
       } else {
         final (sha, bytes) = await _extractContent(dataBody, pass);
-        return (dataRes.statusCode, sha, bytes);
+        return (dataRes.statusCode, sha, etag, bytes);
       }
     }
 
-    return (dataRes.statusCode, null, null);
+    return (dataRes.statusCode, null, null, null);
   }
 
   Future<http.Response> pushToGitHubWithResponse(
@@ -297,10 +310,8 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
     final (repo, token, pass) = await _getServerConfig();
     final headers = {
       "Authorization": "Bearer $token",
-      if (documentSha != null && documentSha.isNotEmpty)
-        'If-None-Match': documentSha,
       if (lastModified != null && lastModified.isNotEmpty)
-        'If-Modified-Since': lastModified,
+        'If-None-Match': lastModified,
     };
     return (repo, headers, pass);
   }
@@ -340,10 +351,11 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
   }
 
   Future<bool> hasSyncDataModified() async {
-    return sharedPreferences.getBool(keyHasSyncDataModified) ?? false;
+    return isModified;
   }
 
   Future<void> setSyncDataModified(bool modified) async {
+    isModified = modified;
     await sharedPreferences.setBool(keyHasSyncDataModified, modified);
   }
 }

@@ -7,6 +7,7 @@
  */
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -20,9 +21,8 @@ import 'tracker_sync_service.dart';
 import 'encrypt_decryt_service.dart';
 
 mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
-  static final _keyUseLocalPdfPath = 'use_local_pdf_path';
   static final _keyLastPickedLocalPath = 'last_picked_local_path';
-  static final _keyLastPdfPage = 'last_pdf_page';
+  static final String keyLastPdfPage = 'last_pdf_page';
   static final String keyPdfIsModified = 'pdf_is_modified';
   static final String keyPdfDocumentSha = 'pdf_document_sha';
   static final String keyPdfLastModified = 'pdf_last_modified';
@@ -34,6 +34,7 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   bool isCheckingNetwork = false;
   int lastSavedPage = 1;
   String? localDecryptedPath;
+  bool syncInProgress = false;
 
   bool get mounted;
   BuildContext get context;
@@ -66,7 +67,7 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   String get githubFilePath => 'tennis-coaching/$localFileName';
 
   @override
-  bool get isModifiable => false;
+  bool get isModifiable => true;
 
   @override
   String get keyDocumentLastModified => keyPdfLastModified;
@@ -81,13 +82,19 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   String get localFileName => 'training_manual.pdf';
 
   @override
-  void notifySyncDone() {}
+  void notifySyncDone() {
+    setState(() => syncInProgress = false);
+  }
 
   @override
-  void notifySyncFailed() {}
+  void notifySyncFailed() {
+    setState(() => syncInProgress = false);
+  }
 
   @override
-  void notifySyncStarted() {}
+  void notifySyncStarted() {
+    setState(() => syncInProgress = true);
+  }
 
   @override
   Future<void> processConflicts(Uint8List serverData, String serverSha) async {}
@@ -95,7 +102,10 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   @override
   Future<void> processContentPostLoad(Uint8List content) async {
     final dir = await getApplicationCacheDirectory();
-    localDecryptedPath = '${dir.path}/$localFileName';
+    setState(() {
+      localDecryptedPath = '${dir.path}/$localFileName';
+      lastSavedPage = 1;
+    });
   }
 
   @override
@@ -109,15 +119,6 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
 
   Future<void> _loadLocalPreferences() async {
     await initializeSyncer();
-    if ((sharedPreferences.getBool(_keyUseLocalPdfPath) ?? false)) {
-      String path = sharedPreferences.getString(_keyLastPickedLocalPath) ?? '';
-      int page = sharedPreferences.getInt(_keyLastPdfPage) ?? 1;
-      setState(() {
-        localDecryptedPath = path;
-        lastSavedPage = page;
-      });
-      return;
-    }
 
     if (mounted) setState(() => isLoading = false);
   }
@@ -129,16 +130,13 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
     );
     if (result != null && result.files.single.path != null) {
       final path = result.files.single.path!;
+      final bytes = await File(path).readAsBytes();
+      await cacheLocally(bytes, appSha ?? '', appEtag ?? '');
+      await processContentPostLoad(bytes);
       await sharedPreferences.setString(_keyLastPickedLocalPath, path);
-      await sharedPreferences.setInt(_keyLastPdfPage, 1);
-      await sharedPreferences.setBool(_keyUseLocalPdfPath, true);
-
-      setState(() {
-        localDecryptedPath = path;
-        lastSavedPage = 1;
-        setCurrentPageNotifier(1);
-        setOutlineNotifierNull();
-      });
+      await sharedPreferences.setInt(keyLastPdfPage, 1);
+      await setSyncDataModified(true);
+      syncData();
     }
   }
 

@@ -97,6 +97,15 @@ class _PdfViewerPageState extends State<PdfViewerPage>
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
+          IconButton(
+            icon: Icon(syncInProgress ? Icons.sync_lock : Icons.sync),
+            onPressed: syncInProgress ? null : syncData,
+          ),
+          IconButton(
+            icon: const Icon(Icons.upload),
+            tooltip: 'Upload New Document',
+            onPressed: () async => pickLocalDocument(),
+          ),
           ...getAppBarCommonActions(),
         ],
       ),
@@ -168,8 +177,9 @@ class _PdfViewerPageState extends State<PdfViewerPage>
                 onPageChanged: (p) {
                   if (p != null) {
                     _currentPageNotifier.value = p;
-                    SharedPreferences.getInstance().then(
-                      (s) => s.setInt('last_pdf_page', p),
+                    sharedPreferences.setInt(
+                      PdfLoaderService.keyLastPdfPage,
+                      p,
                     );
                   }
                 },
