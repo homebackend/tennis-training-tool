@@ -19,11 +19,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 
 import '../models/schedule.dart';
-import '../services/preferences_backup_service.dart';
 import '../services/schedule_parser_service.dart';
 import '../services/schedule_sync_service.dart';
 import '../services/tracker_sync_service.dart';
-import '../widgets/setup_page.dart';
 import 'schedule_creator_page.dart';
 
 class SchedulePage extends StatefulWidget {
@@ -39,7 +37,6 @@ class _SchedulePageState extends State<SchedulePage> {
 
   late ScheduleSyncService _syncService;
   late StreamSubscription<void>? _resyncSubscription;
-  bool _isConfigured = false;
   bool _userHasNavigatedAway = false;
   List<ScheduleItem> _items = [];
   DateTime _currentDay = DateTime.now();
@@ -118,19 +115,6 @@ class _SchedulePageState extends State<SchedulePage> {
       1 + ((d.difference(_start).inDays) / 7).toInt() % _cycleWeeks;
 
   Future<void> _load() async {
-    final url = await widget.secureStorage.read(
-      key: PreferencesBackupService.keyScheduleYamlUrl,
-    );
-    final pwd = await widget.secureStorage.read(
-      key: PreferencesBackupService.keyEncPwd,
-    );
-    if (url == null || pwd == null) {
-      setState(() {
-        _isConfigured = false;
-        _syncInProgress = false;
-      });
-      return;
-    }
     try {
       _syncService = ScheduleSyncService(
         widget.secureStorage,
@@ -150,7 +134,6 @@ class _SchedulePageState extends State<SchedulePage> {
     } catch (e) {
       log('Error: $e');
       setState(() {
-        _isConfigured = false;
         _syncInProgress = false;
       });
     }
@@ -169,7 +152,6 @@ class _SchedulePageState extends State<SchedulePage> {
         _start = start;
         _cycleWeeks = cycleWeeks;
         _items = items;
-        _isConfigured = true;
         _itemKeys.clear();
         _lastLiveId = null;
         _syncInProgress = false;
@@ -181,7 +163,6 @@ class _SchedulePageState extends State<SchedulePage> {
     } catch (e) {
       log('Error: $e');
       setState(() {
-        _isConfigured = false;
         _syncInProgress = false;
       });
     }
@@ -499,20 +480,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isConfigured) {
-      return SetupPage(widget.secureStorage, (url, password) async {
-        await widget.secureStorage.write(
-          key: PreferencesBackupService.keyScheduleYamlUrl,
-          value: url,
-        );
-        await widget.secureStorage.write(
-          key: PreferencesBackupService.keyEncPwd,
-          value: password,
-        );
-        TrackerSyncService.globalResyncTrigger.add(null);
-      }, PreferencesBackupService(widget.secureStorage));
-    }
-    if (_items.isEmpty) {
+    if (_syncInProgress || _items.isEmpty) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
