@@ -13,6 +13,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../mixins/page_common.dart';
 import '../services/tracker_sync_service.dart';
 import '../tool.dart';
 import '../widgets/athlete_analytics_dashboard.dart';
@@ -30,7 +31,7 @@ class TrackerSyncPage extends StatefulWidget {
 }
 
 class _TrackerSyncPageState extends State<TrackerSyncPage>
-    with TickerProviderStateMixin {
+    with PageCommon, TickerProviderStateMixin {
   static final String _keyLastSelectedKidId = 'last_selected_kid_id';
 
   late final TrackerSyncService _syncService;
@@ -244,6 +245,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
                       }
                     },
             ),
+          ...getAppBarCommonActions(),
         ],
         bottom: _tabController != null
             ? TabBar(
@@ -421,4 +423,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
       }
     }
   }
+
+  @override
+  FlutterSecureStorage get secureStorage => widget.secureStorage;
 }

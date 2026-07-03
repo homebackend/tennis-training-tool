@@ -143,22 +143,6 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
     }
   }
 
-  Future<void> saveConfigAndFetch(String url, String password) async {
-    if (url.isEmpty || password.isEmpty) return;
-    TrackerSyncService.globalResyncTrigger.add(null);
-    setState(() => isLoading = true);
-    await secureStorage.write(
-      key: PreferencesBackupService.keyPdfDownloadUrl,
-      value: url,
-    );
-    await secureStorage.write(
-      key: PreferencesBackupService.keyEncPwd,
-      value: password,
-    );
-
-    setState(() => isLoading = false);
-  }
-
   void showSnackBar(String m) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 

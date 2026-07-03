@@ -16,14 +16,11 @@ import 'package:file_picker/file_picker.dart';
 import 'tracker_sync_service.dart';
 
 class PreferencesBackupService {
-  static final keyPdfDownloadUrl = 'pdf_download_url';
-  static final keyScheduleYamlUrl = 'schedule_yaml_url';
   static final keyGitRepo = 'git_repo';
   static final keyGitToken = 'git_token';
   static final keyEncPwd = 'encryption_token';
 
   static final Map<String, List<String>> _keyMappings = {
-    keyPdfDownloadUrl: [''],
     keyGitRepo: ['git_json_repo', 'git_repo_target'],
     keyGitToken: ['git_json_token', 'git_access_token'],
     keyEncPwd: [
@@ -32,19 +29,17 @@ class PreferencesBackupService {
       'git_json_password',
     ],
   };
+  static final List<String> _keysToBeDeleted = [
+    'pdf_download_url',
+    'schedule_yaml_url',
+  ];
   final FlutterSecureStorage _secureStorage;
 
   PreferencesBackupService(this._secureStorage);
 
   Future<void> upgradePreferences() async {
     final config = await _getValues();
-    for (final key in [
-      keyPdfDownloadUrl,
-      keyGitRepo,
-      keyGitToken,
-      keyScheduleYamlUrl,
-      keyEncPwd,
-    ]) {
+    for (final key in [keyGitRepo, keyGitToken, keyEncPwd]) {
       if (config[key] == null) {
         if (_keyMappings.containsKey(key)) {
           for (final xKey in _keyMappings[key]!) {
@@ -65,20 +60,23 @@ class PreferencesBackupService {
         }
       }
     }
+
+    for (final key in _keysToBeDeleted) {
+      if (await _secureStorage.containsKey(key: key)) {
+        log('Deleting $key as it is no longer used now.');
+        await _secureStorage.delete(key: key);
+      }
+    }
   }
 
   Future<Map<String, dynamic>> _getValues() async {
-    final pdfUrl = await _secureStorage.read(key: keyPdfDownloadUrl);
-    final scheduleUrl = await _secureStorage.read(key: keyScheduleYamlUrl);
     final gitRepo = await _secureStorage.read(key: keyGitRepo);
     final gitToken = await _secureStorage.read(key: keyGitToken);
     final encryptionPassword = await _secureStorage.read(key: keyEncPwd);
 
     final Map<String, dynamic> configBackup = {
-      "backup_version": "2026.4",
+      "backup_version": "2026.5",
       "timestamp": DateTime.now().toIso8601String(),
-      keyPdfDownloadUrl: pdfUrl,
-      keyScheduleYamlUrl: scheduleUrl,
       keyGitRepo: gitRepo,
       keyGitToken: gitToken,
       keyEncPwd: encryptionPassword,
@@ -124,13 +122,7 @@ class PreferencesBackupService {
           await selectedFile.readAsString(),
         );
 
-        for (final key in [
-          keyPdfDownloadUrl,
-          keyGitRepo,
-          keyGitToken,
-          keyScheduleYamlUrl,
-          keyEncPwd,
-        ]) {
+        for (final key in [keyGitRepo, keyGitToken, keyEncPwd]) {
           if (config.containsKey(key)) {
             await _secureStorage.write(key: key, value: config[key]);
           }

@@ -18,6 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 
+import '../mixins/page_common.dart';
 import '../models/schedule.dart';
 import '../services/schedule_parser_service.dart';
 import '../services/schedule_sync_service.dart';
@@ -31,7 +32,7 @@ class SchedulePage extends StatefulWidget {
   State<SchedulePage> createState() => _SchedulePageState();
 }
 
-class _SchedulePageState extends State<SchedulePage> {
+class _SchedulePageState extends State<SchedulePage> with PageCommon {
   static final keySelectedCategory = 'selected_category';
   static final keyTZLoc = 'tz_lock';
 
@@ -510,6 +511,7 @@ class _SchedulePageState extends State<SchedulePage> {
                 );
               },
             ),
+          ...getAppBarCommonActions(),
         ],
       ),
       body: dayItems.isEmpty
@@ -703,4 +705,7 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   String _pretty(String c) => c[0].toUpperCase() + c.substring(1);
+
+  @override
+  FlutterSecureStorage get secureStorage => widget.secureStorage;
 }

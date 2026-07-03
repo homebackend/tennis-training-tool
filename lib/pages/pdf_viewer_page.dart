@@ -14,9 +14,9 @@ import 'package:pdfrx/pdfrx.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../mixins/github_syncer.dart';
+import '../mixins/page_common.dart';
 import '../services/encrypt_decryt_service.dart';
 import '../services/pdf_loader_service.dart';
-import '../services/preferences_backup_service.dart';
 
 class PdfViewerPage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
@@ -27,10 +27,9 @@ class PdfViewerPage extends StatefulWidget {
 }
 
 class _PdfViewerPageState extends State<PdfViewerPage>
-    with EncryptDecryptService, PdfLoaderService, GitHubSyncer {
+    with PageCommon, EncryptDecryptService, PdfLoaderService, GitHubSyncer {
   static final String keyPdfIsTocVisible = 'pdf_is_toc_visible';
 
-  late final PreferencesBackupService _backupService;
   late final PdfViewerController _pdfController;
   final _outlineNotifier = ValueNotifier<List<PdfOutlineNode>?>(null);
   final _currentPageNotifier = ValueNotifier<int>(1);
@@ -40,7 +39,6 @@ class _PdfViewerPageState extends State<PdfViewerPage>
   @override
   void initState() {
     super.initState();
-    _backupService = PreferencesBackupService(secureStorage);
     _pdfController = PdfViewerController();
     _init();
   }
@@ -65,14 +63,6 @@ class _PdfViewerPageState extends State<PdfViewerPage>
 
   @override
   FlutterSecureStorage get secureStorage => widget.secureStorage;
-
-  void _showSnackBar(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
 
   @override
   void dispose() {
@@ -107,14 +97,7 @@ class _PdfViewerPageState extends State<PdfViewerPage>
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
-          IconButton(
-            icon: const Icon(Icons.import_export),
-            tooltip: 'Export Settings',
-            onPressed: () async {
-              final msg = await _backupService.exportSystemPreferences();
-              if (msg != null) _showSnackBar(msg);
-            },
-          ),
+          ...getAppBarCommonActions(),
         ],
       ),
       body: Row(
