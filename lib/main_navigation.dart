@@ -6,12 +6,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'pages/audio_player_page.dart';
-import 'pages/debug_sync_page.dart';
 import 'pages/schedule_page.dart';
 import 'pages/tracker_sync_page.dart';
 import 'pages/pdf_viewer_page.dart';
@@ -40,7 +38,6 @@ class _MainNavigationState extends State<MainNavigation> {
       PdfViewerPage(secureStorage),
       const AudioPlayerPage(),
       TrackerSyncPage(secureStorage),
-      if (kDebugMode) DebugSyncPage(),
     ];
 
     _initialize();
@@ -115,12 +112,6 @@ class _MainNavigationState extends State<MainNavigation> {
             icon: Icon(Icons.analytics_outlined),
             label: 'Athlete Tracker',
           ),
-          if (kDebugMode)
-            BottomNavigationBarItem(
-              icon: Icon(Icons.analytics),
-              backgroundColor: Colors.red,
-              label: 'Debug Athlete Tracker',
-            ),
         ],
       ),
     );

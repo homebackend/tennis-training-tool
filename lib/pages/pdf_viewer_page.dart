@@ -13,10 +13,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../mixins/github_syncer.dart';
 import '../services/encrypt_decryt_service.dart';
 import '../services/pdf_loader_service.dart';
 import '../services/preferences_backup_service.dart';
-import '../widgets/setup_page.dart';
 
 class PdfViewerPage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
@@ -27,7 +27,7 @@ class PdfViewerPage extends StatefulWidget {
 }
 
 class _PdfViewerPageState extends State<PdfViewerPage>
-    with EncryptDecryptService, PdfLoaderService {
+    with EncryptDecryptService, PdfLoaderService, GitHubSyncer {
   static final String keyPdfIsTocVisible = 'pdf_is_toc_visible';
 
   late final PreferencesBackupService _backupService;
@@ -43,12 +43,11 @@ class _PdfViewerPageState extends State<PdfViewerPage>
     _backupService = PreferencesBackupService(secureStorage);
     _pdfController = PdfViewerController();
     _init();
-    initPdfLoader();
   }
 
   Future<void> _init() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    _isTocVisible = prefs.getBool(keyPdfIsTocVisible) ?? true;
+    await initPdfLoader();
+    _isTocVisible = sharedPreferences.getBool(keyPdfIsTocVisible) ?? true;
   }
 
   @override
@@ -87,16 +86,6 @@ class _PdfViewerPageState extends State<PdfViewerPage>
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (!isConfigured) {
-      return SetupPage(
-        widget.secureStorage,
-        saveConfigAndFetch,
-        _backupService,
-        pickLocal: true,
-        pickLocalCopy: pickLocalDocument,
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: Text(isCheckingNetwork ? 'Updating...' : 'Tennis Playbook'),
@@ -119,17 +108,12 @@ class _PdfViewerPageState extends State<PdfViewerPage>
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.upload),
+            icon: const Icon(Icons.import_export),
             tooltip: 'Export Settings',
             onPressed: () async {
               final msg = await _backupService.exportSystemPreferences();
               if (msg != null) _showSnackBar(msg);
             },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: 'Settings',
-            onPressed: () => setState(() => isConfigured = false),
           ),
         ],
       ),

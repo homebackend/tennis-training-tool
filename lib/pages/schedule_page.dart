@@ -37,6 +37,7 @@ class _SchedulePageState extends State<SchedulePage> {
   static final keySelectedCategory = 'selected_category';
   static final keyTZLoc = 'tz_lock';
 
+  late ScheduleSyncService _syncService;
   late StreamSubscription<void>? _resyncSubscription;
   bool _isConfigured = false;
   bool _userHasNavigatedAway = false;
@@ -45,7 +46,6 @@ class _SchedulePageState extends State<SchedulePage> {
   DateTime _currentTime = DateTime.now();
   late DateTime _leftLimit;
   late DateTime _rightLimit;
-  Timer? _syncTimer;
   Timer? _pageTimer;
   late DateTime _start;
   late int _cycleWeeks;
@@ -71,7 +71,6 @@ class _SchedulePageState extends State<SchedulePage> {
       }
     });
     _init();
-    _syncTimer = Timer.periodic(const Duration(hours: 1), (_) => _load());
     _pageTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       final now = DateTime.now();
       setState(() {
@@ -133,14 +132,21 @@ class _SchedulePageState extends State<SchedulePage> {
       return;
     }
     try {
-      final yaml = await ScheduleSyncService(
-        url,
-        pwd,
+      _syncService = ScheduleSyncService(
+        widget.secureStorage,
+        await SharedPreferences.getInstance(),
         () => setState(() => _syncInProgress = true),
         () => setState(() => _syncInProgress = false),
-        _loadFromYaml,
-      ).load();
-      _loadFromYaml(yaml);
+        (self) async {
+          if (self.yaml != null) {
+            await _loadFromYaml(self.yaml!);
+          }
+        },
+      );
+      await _syncService.initializeSyncer();
+      if (_syncService.yaml != null) {
+        await _loadFromYaml(_syncService.yaml!);
+      }
     } catch (e) {
       log('Error: $e');
       setState(() {
@@ -653,11 +659,11 @@ class _SchedulePageState extends State<SchedulePage> {
 
   @override
   void dispose() {
-    _syncTimer?.cancel();
     _pageTimer?.cancel();
     _scrollController.dispose();
     _audioPlayer.dispose();
     _resyncSubscription?.cancel();
+    _syncService.disposeSyncer();
     super.dispose();
   }
 

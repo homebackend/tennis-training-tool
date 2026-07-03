@@ -61,21 +61,19 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
   void notifySyncStarted();
   void notifySyncDone();
   void notifySyncFailed();
-  /*
-    final Map<String, dynamic> auditLog = await generateAuditPayload();
-    final localData = Map<String, dynamic>.from(content);
-    localData['metadata'] = auditLog;
-    return json.encode(localdata);
-   */
   Future<void> processContentPostLoad(Uint8List content);
-  Future<void> processContentPreWrite(Uint8List content);
   Future<void> processConflicts(Uint8List serverData, String serverSha);
   Future<void> syncDataLoader();
 
+  Future<Uint8List> getContentsForWrite() async {
+    final cacheFile = await _cacheFile();
+    return await cacheFile.readAsBytes();
+  }
+
   Timer? _syncTimer;
 
-  void initializeSyncer() async {
-    _loadSyncData();
+  Future<void> initializeSyncer() async {
+    await _loadSyncData();
 
     _syncTimer = Timer.periodic(syncDuration, (_) {
       _syncFromNetwork(true);
@@ -187,8 +185,7 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
 
     try {
       notifySyncStarted();
-      final cacheFile = await _cacheFile();
-      final bytes = await cacheFile.readAsBytes();
+      final bytes = await getContentsForWrite();
       final res = await pushToGitHubWithResponse(
         bytes,
         fileSha: retryServerFileSha,
@@ -232,11 +229,14 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
       final dataBody = json.decode(dataRes.body);
       if (dataBody['encoding'] != 'base64' || dataBody['content'] == '') {
         final (blobUrl, headers, pass) = await _getBlobRequestData(
-          documentSha: documentSha ?? dataBody['sha'],
+          documentSha: documentSha != null && documentSha.isNotEmpty
+              ? documentSha
+              : dataBody['sha'],
         );
         final blobRes = await client.get(blobUrl, headers: headers);
         if (blobRes.statusCode == 200) {
-          final (sha, bytes) = await _extractContent(dataBody, pass);
+          final blobBody = json.decode(blobRes.body);
+          final (sha, bytes) = await _extractContent(blobBody, pass);
           return (blobRes.statusCode, sha, bytes);
         } else {
           return (blobRes.statusCode, null, null);
@@ -313,9 +313,10 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
       lastModified: lastModified,
       documentSha: documentSha,
     );
-    final uri = Uri.parse(
-      "https://api.github.com/repos/$repo/contents/$githubFilePath",
-    );
+    final url =
+        "https://api.github.com/repos/$repo/contents/$githubFilePath.enc";
+    final uri = Uri.parse(url);
+    log('url: $url');
     return (uri, headers, pass);
   }
 
@@ -327,14 +328,22 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
       lastModified: lastModified,
       documentSha: documentSha,
     );
-    final uri = Uri.parse(
-      'https://api.github.com/repos/$repo/git/blobs/$documentSha',
-    );
+    final url = 'https://api.github.com/repos/$repo/git/blobs/$documentSha';
+    final uri = Uri.parse(url);
+    log('Blob url: $url');
     return (uri, headers, pass);
   }
 
   Future<File> _cacheFile() async {
     final dir = await getApplicationCacheDirectory();
     return File('${dir.path}/$localFileName');
+  }
+
+  Future<bool> hasSyncDataModified() async {
+    return sharedPreferences.getBool(keyHasSyncDataModified) ?? false;
+  }
+
+  Future<void> setSyncDataModified(bool modified) async {
+    await sharedPreferences.setBool(keyHasSyncDataModified, modified);
   }
 }
