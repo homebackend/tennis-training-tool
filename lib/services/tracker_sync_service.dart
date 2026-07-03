@@ -8,18 +8,19 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
+import 'dart:developer';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_common/flutter_common.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_common/tool.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:yaml/yaml.dart';
 
+import '../mixins/github_syncer.dart';
 import 'encrypt_decryt_service.dart';
-import 'preferences_backup_service.dart';
 
 class CellConflict {
   final String columnName;
@@ -71,151 +72,123 @@ class ConcurrentModificationException implements Exception {
   ConcurrentModificationException(this.conflicts, this.serverFileSha);
 }
 
-class TrackerSyncService with EncryptDecryptService {
-  final FlutterSecureStorage _secureStorage;
-  final http.Client _client;
+class TrackerSyncService with EncryptDecryptService, GitHubSyncer {
   static final StreamController<void> globalResyncTrigger =
       StreamController<void>.broadcast();
 
-  static const String _keyDataCache = "json_local_cache";
-  static const String _keyShaCache = "json_server_sha";
-  static const String _keyTrackerDataModified = "has_tracker_data_modified";
+  static const String _keyDocumentSha = 'json_server_sha';
+  static const String _keyLastModified = 'json_last_modified';
+  static const String _keyTrackerDataModified = 'has_tracker_data_modified';
 
-  static const String _fileName = "tracker.json";
+  final FlutterSecureStorage _secureStorage;
+  final SharedPreferences _sharedPreferences;
+  final http.Client _client;
+  final void Function() syncStartNotifier;
+  final void Function() syncDoneNotifier;
+  final void Function() syncFailedNotifier;
+  final Future<void> Function(TrackerSyncService self) loader;
 
   Map? schema;
   Map<String, dynamic> appData = {"kids": [], "biometrics": []};
-  String? appFileSha;
 
-  TrackerSyncService(this._secureStorage, {http.Client? client})
-    : _client = client ?? http.Client();
+  TrackerSyncService(
+    this._secureStorage,
+    this._sharedPreferences,
+    this.syncStartNotifier,
+    this.syncDoneNotifier,
+    this.syncFailedNotifier,
+    this.loader, {
+    http.Client? client,
+  }) : _client = client ?? http.Client();
 
-  Future<bool> hasTrackerDataModified() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keyTrackerDataModified) ?? false;
-  }
-
-  Future<void> setTrackerDataModified(bool modified) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyTrackerDataModified, modified);
-  }
-
-  Future<(String, String, String)> getServerConfig() async {
-    final repo =
-        await _secureStorage.read(key: PreferencesBackupService.keyGitRepo) ??
-        '';
-    final token =
-        await _secureStorage.read(key: PreferencesBackupService.keyGitToken) ??
-        '';
-    final pass =
-        await _secureStorage.read(key: PreferencesBackupService.keyEncPwd) ??
-        '';
-
-    return (repo, token, pass);
-  }
-
-  Future<(Uri, Map<String, String>, String)> getTrackerServerInfo() async {
-    final (repo, token, pass) = await getServerConfig();
-    final uri = Uri.parse(
-      "https://api.github.com/repos/$repo/contents/$_fileName",
-    );
-    final headers = {"Authorization": "Bearer $token"};
-    return (uri, headers, pass);
-  }
-
-  Future<bool> loadCachedSession() async {
-    final prefs = await SharedPreferences.getInstance();
+  Future<void> initialize() async {
     try {
       final String rawYaml = await rootBundle.loadString('assets/schema.yaml');
       schema = loadYaml(rawYaml);
+
+      await initializeSyncer();
     } catch (e) {
-      return false;
-    }
-
-    final (repo, token, pass) = await getServerConfig();
-    if (repo.isNotEmpty && token.isNotEmpty && pass.isNotEmpty) {
-      String? cache = prefs.getString(_keyDataCache);
-      if (cache == null) {
-        // Try to load cache since it is missing
-        await syncFromGitHub();
-        cache = prefs.getString(_keyDataCache);
-      }
-      if (cache != null) {
-        appData = json.decode(cache);
-        appFileSha = prefs.getString(_keyShaCache);
-        return true;
-      }
-    }
-    return false;
-  }
-
-  Future<void> saveServerConfig({
-    required String repo,
-    required String token,
-    required String password,
-  }) async {
-    await _secureStorage.write(
-      key: PreferencesBackupService.keyGitRepo,
-      value: repo,
-    );
-    await _secureStorage.write(
-      key: PreferencesBackupService.keyGitToken,
-      value: token,
-    );
-    await _secureStorage.write(
-      key: PreferencesBackupService.keyEncPwd,
-      value: password,
-    );
-  }
-
-  Future<void> clearSavedSession() async {
-    await _secureStorage.deleteAll();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyDataCache);
-    await prefs.remove(_keyShaCache);
-    await prefs.remove(_keyTrackerDataModified);
-    appData = {"kids": [], "biometrics": []};
-    appFileSha = null;
-  }
-
-  Future<(int, String?, Map<String, dynamic>?)> fetchFromGitHub() async {
-    final (dataUrl, headers, pass) = await getTrackerServerInfo();
-
-    final dataRes = await _client.get(dataUrl, headers: headers);
-    if (dataRes.statusCode == 200) {
-      final dataBody = json.decode(dataRes.body);
-      final String fileSha = dataBody["sha"];
-      final encryptedBytes = base64Decode(
-        dataBody["content"].toString().replaceAll('\n', ''),
-      );
-      final decryptedBytes = await decryptBytes(encryptedBytes, pass);
-      final Map<String, dynamic> data = json.decode(
-        utf8.decode(decryptedBytes),
-      );
-      return (dataRes.statusCode, fileSha, data);
-    } else if (dataRes.statusCode == 404) {
-      return (dataRes.statusCode, null, {"kids": [], "biometrics": []});
-    } else {
-      return (dataRes.statusCode, null, null);
+      log('Error during Tracker sync Service init: $e');
     }
   }
 
-  Future<void> syncFromGitHub() async {
-    final (code, fileSha, data) = await fetchFromGitHub();
+  @override
+  http.Client get client => _client;
 
-    if (fileSha == null && data == null) {
-      throw Exception("Data download rejected: Code $code");
-    }
+  @override
+  String get githubFilePath => 'data/$localFileName';
 
-    if (fileSha != null) {
-      appFileSha = fileSha;
-    }
-    if (data != null) {
-      appData = data;
-    }
+  @override
+  bool get isModifiable => true;
 
-    await cacheLocally();
+  @override
+  String get keyDocumentLastModified => _keyLastModified;
+
+  @override
+  String get keyDocumentSha => _keyDocumentSha;
+
+  @override
+  String get keyHasSyncDataModified => _keyTrackerDataModified;
+
+  @override
+  String get localFileName => 'tracker.json';
+
+  @override
+  void notifySyncDone() => syncDoneNotifier();
+
+  @override
+  void notifySyncFailed() => syncFailedNotifier();
+
+  @override
+  void notifySyncStarted() => syncStartNotifier();
+
+  @override
+  Future<void> processConflicts(Uint8List serverData, String serverSha) async {
+    final Map<String, dynamic> data = json.decode(utf8.decode(serverData));
+    final conflicts = _processConflicts(appData, data, {
+      'kids': 'id',
+      'biometrics': 'entry_id',
+    });
+
+    /* At this stage we have incorporated all conflicts into appData.
+       * appFileSha remains same as before. User is now supposed to 
+       * merge changes (if required). If user cancles merge or doesn't
+       * commit appFileSha remains the same. So changes will have to
+       * merge again next time. If user merges and commits but commit
+       * fails to happen in three retries, appFileSha remains same. So
+       * user will again have to merge and commit. If further changes 
+       * happen on the server side in the mean time, those will have 
+       * to be merged as well.
+       */
+    throw ConcurrentModificationException(conflicts, serverSha);
   }
+
+  @override
+  Future<void> processContentPostLoad(Uint8List content) async {
+    appData = json.decode(utf8.decode(content));
+  }
+
+  @override
+  Future<Uint8List> getContentsForWrite() async {
+    final Map<String, dynamic> auditLog = await generateAuditPayload();
+    final localData = Map<String, dynamic>.from(appData);
+    localData['metadata'] = auditLog;
+    return utf8.encode(json.encode(localData));
+  }
+
+  @override
+  FlutterSecureStorage get secureStorage => _secureStorage;
+
+  @override
+  SharedPreferences get sharedPreferences => _sharedPreferences;
+
+  @override
+  Future<void> syncDataLoader() async {
+    await loader(this);
+  }
+
+  @override
+  Duration get syncDuration => Duration(minutes: 30);
 
   List<dynamic> getPagedAndReverseSortedData({
     required String kidId,
@@ -236,80 +209,11 @@ class TrackerSyncService with EncryptDecryptService {
     final int startPosition = pageOffset;
     if (startPosition >= filtered.length) return [];
 
-    final int endPosition = min(startPosition + pageSize, filtered.length);
+    final int endPosition = math.min(startPosition + pageSize, filtered.length);
     return filtered.sublist(startPosition, endPosition);
   }
 
-  Future<http.Response> pushToGitHubWithResponse({String? fileSha}) async {
-    final (url, headers, pass) = await getTrackerServerInfo();
-    headers["Content-Type"] = "application/json";
-
-    final Map<String, dynamic> auditLog = await generateAuditPayload();
-    final localData = Map<String, dynamic>.from(appData);
-    localData['metadata'] = auditLog;
-
-    final plainBytes = utf8.encode(json.encode(localData));
-    final encryptedBytes = await encryptBytes(
-      Uint8List.fromList(plainBytes),
-      pass,
-    );
-    final requestBody = {
-      "message": "Sync via App Tracker",
-      "content": base64Encode(encryptedBytes),
-      if (appFileSha != null || fileSha != null) "sha": fileSha ?? appFileSha,
-    };
-    return await _client.put(
-      url,
-      headers: headers,
-      body: json.encode(requestBody),
-    );
-  }
-
-  Future<void> pushToGitHub() async {
-    final res = await pushToGitHubWithResponse();
-
-    if (res.statusCode == 200 || res.statusCode == 201) {
-      // appData is already up to date
-      appFileSha = json.decode(res.body)["content"]["sha"];
-      await cacheLocally();
-    }
-  }
-
-  Future<void> pushToGitHubWithAutoMerge({String? retryServerFileSha}) async {
-    final res = await pushToGitHubWithResponse(fileSha: retryServerFileSha);
-
-    if (res.statusCode == 200 || res.statusCode == 201) {
-      appFileSha = json.decode(res.body)["content"]["sha"];
-      await cacheLocally();
-    } else if (res.statusCode == 409) {
-      final (code, serverFileSha, serverData) = await fetchFromGitHub();
-
-      if (serverFileSha == null || serverData == null) {
-        throw Exception('Failed to pull latest version of $_fileName: $code');
-      }
-
-      final conflicts = processConflicts(appData, serverData, {
-        'kids': 'id',
-        'biometrics': 'entry_id',
-      });
-
-      /* At this stage we have incorporated all conflicts into appData.
-       * appFileSha remains same as before. User is now supposed to 
-       * merge changes (if required). If user cancles merge or doesn't
-       * commit appFileSha remains the same. So changes will have to
-       * merge again next time. If user merges and commits but commit
-       * fails to happen in three retries, appFileSha remains same. So
-       * user will again have to merge and commit. If further changes 
-       * happen on the server side in the mean time, those will have 
-       * to be merged as well.
-       */
-      throw ConcurrentModificationException(conflicts, serverFileSha);
-    } else {
-      throw Exception("Push error: ${res.body}");
-    }
-  }
-
-  List<SheetConflict> processConflicts(
+  List<SheetConflict> _processConflicts(
     Map<String, dynamic> localAppData,
     Map<String, dynamic> serverAppData,
     Map<String, String> dataKeyToId,
@@ -579,12 +483,8 @@ class TrackerSyncService with EncryptDecryptService {
     }
   }
 
-  Future<void> cacheLocally() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyDataCache, json.encode(appData));
-    if (appFileSha != null) {
-      await prefs.setString(_keyShaCache, appFileSha!);
-    }
+  Future<void> cacheAppDataLocally() async {
+    await cacheLocally(utf8.encode(json.encode(appData)), appSha ?? '');
   }
 
   dynamic computeFormulaValue(String formula, Map<String, dynamic> rowData) {

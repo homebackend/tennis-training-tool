@@ -18,12 +18,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 
+import '../mixins/page_common.dart';
 import '../models/schedule.dart';
-import '../services/preferences_backup_service.dart';
 import '../services/schedule_parser_service.dart';
 import '../services/schedule_sync_service.dart';
 import '../services/tracker_sync_service.dart';
-import '../widgets/setup_page.dart';
 import 'schedule_creator_page.dart';
 
 class SchedulePage extends StatefulWidget {
@@ -33,19 +32,18 @@ class SchedulePage extends StatefulWidget {
   State<SchedulePage> createState() => _SchedulePageState();
 }
 
-class _SchedulePageState extends State<SchedulePage> {
+class _SchedulePageState extends State<SchedulePage> with PageCommon {
   static final keySelectedCategory = 'selected_category';
   static final keyTZLoc = 'tz_lock';
 
+  late ScheduleSyncService _syncService;
   late StreamSubscription<void>? _resyncSubscription;
-  bool _isConfigured = false;
   bool _userHasNavigatedAway = false;
   List<ScheduleItem> _items = [];
   DateTime _currentDay = DateTime.now();
   DateTime _currentTime = DateTime.now();
   late DateTime _leftLimit;
   late DateTime _rightLimit;
-  Timer? _syncTimer;
   Timer? _pageTimer;
   late DateTime _start;
   late int _cycleWeeks;
@@ -71,7 +69,6 @@ class _SchedulePageState extends State<SchedulePage> {
       }
     });
     _init();
-    _syncTimer = Timer.periodic(const Duration(hours: 1), (_) => _load());
     _pageTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       final now = DateTime.now();
       setState(() {
@@ -119,34 +116,24 @@ class _SchedulePageState extends State<SchedulePage> {
       1 + ((d.difference(_start).inDays) / 7).toInt() % _cycleWeeks;
 
   Future<void> _load() async {
-    final url = await widget.secureStorage.read(
-      key: PreferencesBackupService.keyScheduleYamlUrl,
-    );
-    final pwd = await widget.secureStorage.read(
-      key: PreferencesBackupService.keyEncPwd,
-    );
-    if (url == null || pwd == null) {
-      setState(() {
-        _isConfigured = false;
-        _syncInProgress = false;
-      });
-      return;
-    }
     try {
-      final yaml = await ScheduleSyncService(
-        url,
-        pwd,
+      _syncService = ScheduleSyncService(
+        widget.secureStorage,
+        await SharedPreferences.getInstance(),
         () => setState(() => _syncInProgress = true),
         () => setState(() => _syncInProgress = false),
-        _loadFromYaml,
-      ).load();
-      _loadFromYaml(yaml);
+        (self) async {
+          if (self.yaml != null) {
+            await _loadFromYaml(self.yaml!);
+          }
+        },
+      );
+      await _syncService.initializeSyncer();
+      if (_syncService.yaml != null) {
+        await _loadFromYaml(_syncService.yaml!);
+      }
     } catch (e) {
       log('Error: $e');
-      setState(() {
-        _isConfigured = false;
-        _syncInProgress = false;
-      });
     }
   }
 
@@ -163,10 +150,8 @@ class _SchedulePageState extends State<SchedulePage> {
         _start = start;
         _cycleWeeks = cycleWeeks;
         _items = items;
-        _isConfigured = true;
         _itemKeys.clear();
         _lastLiveId = null;
-        _syncInProgress = false;
       });
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -174,10 +159,6 @@ class _SchedulePageState extends State<SchedulePage> {
       });
     } catch (e) {
       log('Error: $e');
-      setState(() {
-        _isConfigured = false;
-        _syncInProgress = false;
-      });
     }
   }
 
@@ -493,20 +474,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isConfigured) {
-      return SetupPage(widget.secureStorage, (url, password) async {
-        await widget.secureStorage.write(
-          key: PreferencesBackupService.keyScheduleYamlUrl,
-          value: url,
-        );
-        await widget.secureStorage.write(
-          key: PreferencesBackupService.keyEncPwd,
-          value: password,
-        );
-        TrackerSyncService.globalResyncTrigger.add(null);
-      }, PreferencesBackupService(widget.secureStorage));
-    }
-    if (_items.isEmpty) {
+    if (_syncInProgress || _items.isEmpty) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
@@ -536,6 +504,7 @@ class _SchedulePageState extends State<SchedulePage> {
                 );
               },
             ),
+          ...getAppBarCommonActions(),
         ],
       ),
       body: dayItems.isEmpty
@@ -653,11 +622,11 @@ class _SchedulePageState extends State<SchedulePage> {
 
   @override
   void dispose() {
-    _syncTimer?.cancel();
     _pageTimer?.cancel();
     _scrollController.dispose();
     _audioPlayer.dispose();
     _resyncSubscription?.cancel();
+    _syncService.disposeSyncer();
     super.dispose();
   }
 
@@ -729,4 +698,7 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   String _pretty(String c) => c[0].toUpperCase() + c.substring(1);
+
+  @override
+  FlutterSecureStorage get secureStorage => widget.secureStorage;
 }

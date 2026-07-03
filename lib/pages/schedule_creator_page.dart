@@ -16,8 +16,8 @@ import '../services/schedule_editor_service.dart';
 import '../services/schedule_parser_service.dart';
 
 class ScheduleCreatorPage extends StatefulWidget {
-  final void Function(String yaml) onSave; // you save to server
-  final String? initialYaml; // for edit mode
+  final void Function(String yaml) onSave;
+  final String? initialYaml;
   const ScheduleCreatorPage({
     super.key,
     required this.onSave,
