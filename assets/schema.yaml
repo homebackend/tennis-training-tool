@@ -94,33 +94,30 @@ sheets:
       - id: "WeekStart"
         name: "Week Start"
         type: "date"
-      - id: "Time400m"
-        name: "400m Time (s)"
-        type: "numeric"
-      - id: "HangOverhead"
-        name: "Hang (s) - overhead"
-        type: "numeric"
-      - id: "HangLeft"
-        name: "Hang (s) - left arm"
-        type: "numeric"
-      - id: "HangRight"
-        name: "Hang (s) - right arm"
-        type: "numeric"
-      - id: "Server20"
-        name: "Server / 20"
-        type: "numeric"
-      - id: "WallHits30s"
-        name: "Wall Hits / 30s"
-        type: "numeric"
       - id: "Sprint5m"
         name: "5m sprint (s)"
         type: "numeric"
-      - id: "SpiderDrill"
-        name: "Spider Drill (s)"
+        optional: true
+      - id: "Time400m"
+        name: "400m Time (s)"
         type: "numeric"
+        optional: true
+      - id: "Server20"
+        name: "Server / 20"
+        type: "numeric"
+        optional: true
       - id: "ServeKmh"
         name: "Serve (Km/h)"
         type: "numeric"
+        optional: true
+      - id: "WallHits30s"
+        name: "Wall Hits / 30s"
+        type: "numeric"
+        optional: true
+      - id: "SpiderDrill"
+        name: "Spider Drill (s)"
+        type: "numeric"
+        optional: true
 
   - id: "monthly"
     name: "Monthly Sheet"
@@ -128,21 +125,18 @@ sheets:
       - id: "Date"
         name: "Date"
         type: "date"
+      - id: "Run12k"
+        name: "1.2 KM endurance run"
+        type: "numeric"
+        optional: true
       - id: "BeepScore"
         name: "Beep Test Score"
         type: "numeric"
-      - id: "Run12k"
-        name: "1.2 KM run"
-        type: "numeric"
-      - id: "BodyFat"
-        name: "BF %"
-        type: "numeric"
-      - id: "Weight"
-        name: "Weight (kg)"
-        type: "numeric"
+        optional: true
       - id: "BroadJump"
         name: "Broad Jump (cm)"
         type: "numeric"
+        optional: true
         rules:
           - condition: "val >= 181"
             label: "ideal"
@@ -153,6 +147,7 @@ sheets:
       - id: "AnkleMobility"
         name: "Ankle Mobility (cm)"
         type: "numeric"
+        optional: true
         rules:
           - condition: "val > 12"
             label: "ideal"
@@ -163,9 +158,11 @@ sheets:
       - id: "LimbRight"
         name: "Limb girth - right (cm)"
         type: "numeric"
+        optional: true
       - id: "LimbLeft"
         name: "Limb girth - left (cm)"
         type: "numeric"
+        optional: true
       - id: "LimbDiff"
         name: "Limb girth - diff (%)"
         type: "computed"
@@ -173,12 +170,27 @@ sheets:
       - id: "StabilityRight"
         name: "Single leg stability Right"
         type: "boolean"
+        optional: true
       - id: "StabilityLeft"
         name: "Single leg stability Left"
         type: "boolean"
+        optional: true
+      - id: "HangOverhead"
+        name: "Hang (s) - overhead"
+        type: "numeric"
+        optional: true
+      - id: "HangLeft"
+        name: "Hang (s) - left arm"
+        type: "numeric"
+        optional: true
+      - id: "HangRight"
+        name: "Hang (s) - right arm"
+        type: "numeric"
+        optional: true
       - id: "IntRotationRight"
         name: "Internal Rotation - Right"
         type: "numeric"
+        optional: true
         rules:
           - condition: "val >= 40 && val <= 60"
             label: "ideal"
@@ -189,6 +201,7 @@ sheets:
       - id: "IntRotationLeft"
         name: "Internal Rotation - Left"
         type: "numeric"
+        optional: true
         rules:
           - condition: "val >= 50 && val <= 70"
             label: "ideal"
@@ -210,11 +223,15 @@ sheets:
       - id: "ThomasTest"
         name: "Thomas hip test - Pass"
         type: "boolean"
-      - id: "AvgMood"
-        name: "Average mood (1-10)"
-        type: "integer"
-        min: 1
-        max: 10
+        optional: true
+      - id: "FrontPlank"
+        name: "Frontal Normal"
+        type: "numeric"
+        optional: true
+      - id: "SidePlank"
+        name: "Side Plank"
+        type: "numeric"
+        optional: true
 
   - id: "weight"
     name: "Weight Sheet"
