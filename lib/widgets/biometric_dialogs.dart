@@ -77,6 +77,7 @@ class BiometricDialogs {
   static void showMetricsRowForm(
     BuildContext context,
     Map? activeSheetSchema,
+    Map<String, dynamic>? existingKid,
     Map<String, dynamic>? existingRow,
     Function(Map<String, dynamic>) onSave,
   ) {
@@ -106,7 +107,13 @@ class BiometricDialogs {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(existingRow == null ? "Log Row Entry" : "Modify Record"),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(existingRow == null ? "Log Row Entry" : "Modify Record"),
+            Text('for ${existingKid?["name"]}', style: TextStyle(fontSize: 14)),
+          ],
+        ),
         content: SizedBox(
           width: 400,
           child: Form(
@@ -162,7 +169,11 @@ class BiometricDialogs {
                       }
 
                       if (value == null || value.trim().isEmpty) {
-                        return "Field cannot be empty.";
+                        if (col["optional"] ?? false) {
+                          return null;
+                        } else {
+                          return "Field cannot be empty.";
+                        }
                       }
                       if (col["type"] == "integer") {
                         final parsedInt = int.tryParse(value.trim());
@@ -204,12 +215,14 @@ class BiometricDialogs {
                     rowData[col["id"]] = booleanValues[col["id"]];
                   } else {
                     String valStr = controllers[col["id"]]!.text.trim();
-                    if (col["type"] == "integer") {
-                      rowData[col["id"]] = int.parse(valStr);
-                    } else if (col["type"] == "numeric") {
-                      rowData[col["id"]] = double.parse(valStr);
-                    } else {
-                      rowData[col["id"]] = valStr;
+                    if (valStr.trim().isNotEmpty) {
+                      if (col["type"] == "integer") {
+                        rowData[col["id"]] = int.parse(valStr);
+                      } else if (col["type"] == "numeric") {
+                        rowData[col["id"]] = double.parse(valStr);
+                      } else {
+                        rowData[col["id"]] = valStr;
+                      }
                     }
                   }
                 }
