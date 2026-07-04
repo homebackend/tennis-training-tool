@@ -85,7 +85,9 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
         if (shouldSave == true) {
           _save();
         } else if (shouldSave == false) {
-          Navigator.of(context).pop();
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
         }
       },
       child: Scaffold(
