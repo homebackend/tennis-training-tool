@@ -219,6 +219,7 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
       rethrow;
     } finally {
       if (!thereWasException) {
+        await setSyncDataModified(false);
         notifySyncDone();
       }
     }

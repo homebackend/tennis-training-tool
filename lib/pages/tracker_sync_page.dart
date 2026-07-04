@@ -402,21 +402,23 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
           );
 
           for (final conflict in e.conflicts) {
-            final ok = await showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => TrackerConflictResolutionDialog(conflict),
-            );
+            if (context.mounted) {
+              final ok = await showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => TrackerConflictResolutionDialog(conflict),
+              );
 
-            if (ok != true) {
-              _showSnackBar('Saving data cancelled!');
-              return;
+              if (ok != true) {
+                _showSnackBar('Saving data cancelled!');
+                return;
+              }
             }
-          }
 
-          _showSnackBar(
-            "Thanks for Resolving. Re-trying save (Attempt ${attempt + 1}/3)...",
-          );
+            _showSnackBar(
+              "Thanks for Resolving. Re-trying save (Attempt ${attempt + 1}/3)...",
+            );
+          }
         }
         await runSequentialSyncPipeline(
           attempt: attempt + 1,
