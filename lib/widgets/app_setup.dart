@@ -104,7 +104,7 @@ class _AppSetupState extends State<AppSetup> {
                 onPressed: () async {
                   final msg = await widget.backupService
                       .importSystemPreferences();
-                  if (msg != null && mounted) {
+                  if (msg != null && context.mounted) {
                     ScaffoldMessenger.of(
                       context,
                     ).showSnackBar(SnackBar(content: Text(msg)));

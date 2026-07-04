@@ -247,16 +247,20 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
 
   Future<void> _save() async {
     final yaml = await _service.toYaml(start, weeks, items);
-    final shouldSave = await showYamlDiffDialog(
-      context,
-      existingYaml: widget.initialYaml ?? '',
-      generatedYaml: yaml,
-    );
+    if (mounted) {
+      final shouldSave = await showYamlDiffDialog(
+        context,
+        existingYaml: widget.initialYaml ?? '',
+        generatedYaml: yaml,
+      );
 
-    if (shouldSave) {
-      widget.onSave(yaml);
-      setState(() => _dirty = false);
-      Navigator.pop(context);
+      if (shouldSave) {
+        widget.onSave(yaml);
+        setState(() => _dirty = false);
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      }
     }
   }
 

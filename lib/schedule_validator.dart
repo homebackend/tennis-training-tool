@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:yaml/yaml.dart';
 
 import 'models/schedule.dart';
@@ -12,7 +13,7 @@ void main(List<String> args) async {
 
   try {
     final (start, weeks, items) = parser.parseDocument(doc);
-    print('✓ YAML valid\n');
+    debugPrint('✓ YAML valid\n');
     _printWeekly(items, weeks);
   } on YamlValidationError catch (e) {
     stderr.writeln(
@@ -75,11 +76,11 @@ void _printWeekly(List<ScheduleItem> items, int cycleWeeks) {
       final branch = isLastSlot ? '└' : '├';
 
       if (!sameAsParent) {
-        print(
+        debugPrint(
           '$pad$branch─ • ${_fmt(s.timeStart)}-${_fmt(s.timeEnd)} ─ ${node.title}',
         );
       } else {
-        print('$pad$branch─ ${node.title}');
+        debugPrint('$pad$branch─ ${node.title}');
       }
 
       final childPad = pad + (isLastSlot ? ' ' : '│ ');
@@ -98,17 +99,17 @@ void _printWeekly(List<ScheduleItem> items, int cycleWeeks) {
     }
   }
 
-  print('Schedule');
+  debugPrint('Schedule');
   for (var w = 1; w <= cycleWeeks; w++) {
     final weekLast = w == cycleWeeks;
-    print('${weekLast ? '└' : '├'}─ Week $w');
+    debugPrint('${weekLast ? '└' : '├'}─ Week $w');
     final weekPad = weekLast ? ' ' : '│ ';
 
     for (var d = 1; d <= 7; d++) {
       final dayNodes = items.where((n) => hasSlot(n, w, d)).toList();
       if (dayNodes.isEmpty) continue;
 
-      print('$weekPad${'├'}─ ${days[d]}');
+      debugPrint('$weekPad${'├'}─ ${days[d]}');
       final dayPad = '$weekPad│ ';
 
       for (var i = 0; i < dayNodes.length; i++) {
