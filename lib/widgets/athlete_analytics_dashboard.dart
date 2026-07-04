@@ -107,30 +107,9 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
           title: "Daily Wellness, Recovery & Sleep Trends",
           subtitle: "Tracking physical strain markers and total sleep volumes",
           chart: LineChart(
-            LineChartData(
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
-              titlesData: FlTitlesData(
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: _buildLeftAxisTitles(),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 45,
-                    getTitlesWidget: (value, meta) =>
-                        _buildAxisTitleWidget(value, dailyDates),
-                  ),
-                ),
-              ),
-              borderData: FlBorderData(
-                show: true,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              lineBarsData: [
+            _baseLineChartData(
+              spots: dailySpotsSleep,
+              bars: [
                 _buildLineStyle(dailySpotsRPE, Colors.orange.shade700),
                 _buildLineStyle(dailySpotsSoreness, Colors.red.shade600),
                 _buildLineStyle(dailySpotsMood, Colors.green.shade600),
@@ -139,6 +118,15 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
                   Colors.teal.shade600,
                 ), // Sleep Line path
               ],
+              bottom: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 45,
+                  getTitlesWidget: (value, meta) =>
+                      _buildAxisTitleWidget(value, dailyDates),
+                ),
+              ),
+              fractionDigits: 1,
             ),
           ),
           legend: Wrap(
@@ -160,30 +148,18 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
           subtitle:
               "Lower values signify improved explosive footwork acceleration",
           chart: LineChart(
-            LineChartData(
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
-              titlesData: FlTitlesData(
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: _buildLeftAxisTitles(),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 45,
-                    getTitlesWidget: (value, meta) =>
-                        _buildAxisTitleWidget(value, weeklyDates),
-                  ),
+            _baseLineChartData(
+              spots: weeklySpotsSprint,
+              fractionDigits: 2,
+              bottom: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 45,
+                  getTitlesWidget: (value, meta) =>
+                      _buildAxisTitleWidget(value, weeklyDates),
                 ),
               ),
-              borderData: FlBorderData(
-                show: true,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              lineBarsData: [
+              bars: [
                 _buildLineStyle(weeklySpotsSprint, Colors.deepPurple.shade600),
               ],
             ),
@@ -199,32 +175,18 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
           title: "Weekly Serve Speed Progression (Km/h)",
           subtitle: "Monitoring serving output velocity across training cycles",
           chart: LineChart(
-            LineChartData(
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
-              titlesData: FlTitlesData(
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: _buildLeftAxisTitles(),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 45,
-                    getTitlesWidget: (value, meta) =>
-                        _buildAxisTitleWidget(value, weeklyDates),
-                  ),
+            _baseLineChartData(
+              bars: [_buildLineStyle(weeklySpotsServe, Colors.blue.shade700)],
+              bottom: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 45,
+                  getTitlesWidget: (value, meta) =>
+                      _buildAxisTitleWidget(value, weeklyDates),
                 ),
               ),
-              borderData: FlBorderData(
-                show: true,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              lineBarsData: [
-                _buildLineStyle(weeklySpotsServe, Colors.blue.shade700),
-              ],
+              fractionDigits: 0,
+              spots: weeklySpotsServe,
             ),
           ),
           legend: _buildLegendIndicator(
@@ -238,32 +200,18 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
           title: "Athlete Body Weight Progression (kg)",
           subtitle: "Monitoring stable physiological mass variations",
           chart: LineChart(
-            LineChartData(
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
-              titlesData: FlTitlesData(
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: _buildLeftAxisTitles(),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 45,
-                    getTitlesWidget: (value, meta) =>
-                        _buildAxisTitleWidget(value, weightDates),
-                  ),
+            _baseLineChartData(
+              spots: weightSpots,
+              bars: [_buildLineStyle(weightSpots, Colors.pink.shade700)],
+              fractionDigits: 1,
+              bottom: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 45,
+                  getTitlesWidget: (value, meta) =>
+                      _buildAxisTitleWidget(value, weightDates),
                 ),
               ),
-              borderData: FlBorderData(
-                show: true,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              lineBarsData: [
-                _buildLineStyle(weightSpots, Colors.pink.shade700),
-              ],
             ),
           ),
           legend: _buildLegendIndicator(
@@ -277,35 +225,23 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
           title: "Athlete Body Fat Ratio Progression (%)",
           subtitle: "Tracking percentage composition changes across logs",
           chart: LineChart(
-            LineChartData(
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
-              titlesData: FlTitlesData(
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: _buildLeftAxisTitles(),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 45,
-                    getTitlesWidget: (value, meta) =>
-                        _buildAxisTitleWidget(value, bodyFatDates),
-                  ),
-                ),
-              ),
-              borderData: FlBorderData(
-                show: true,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              lineBarsData: [
+            _baseLineChartData(
+              spots: weightFatSpots,
+              bars: [
                 if (monthlyFatSpots.isNotEmpty)
                   _buildLineStyle(monthlyFatSpots, Colors.amber.shade700),
                 if (weightFatSpots.isNotEmpty)
                   _buildLineStyle(weightFatSpots, Colors.orange.shade700),
               ],
+              fractionDigits: 2,
+              bottom: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 45,
+                  getTitlesWidget: (value, meta) =>
+                      _buildAxisTitleWidget(value, bodyFatDates),
+                ),
+              ),
             ),
           ),
           legend: Wrap(
@@ -322,33 +258,20 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
           title: "Monthly Shoulder Internal Rotation Delta (Asymmetry °)",
           subtitle: "Risk thresholds flag imbalances tracking above 10°",
           chart: LineChart(
-            LineChartData(
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
-              titlesData: FlTitlesData(
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: _buildLeftAxisTitles(),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 45,
-                    getTitlesWidget: (value, meta) =>
-                        _buildAxisTitleWidget(value, monthlyDates),
-                  ),
-                ),
-              ),
-              borderData: FlBorderData(
-                show: true,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              minY: 0,
-              lineBarsData: [
+            _baseLineChartData(
+              spots: monthlySpotsDelta,
+              bars: [
                 _buildLineStyle(monthlySpotsDelta, Colors.purple.shade700),
               ],
+              fractionDigits: 1,
+              bottom: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 45,
+                  getTitlesWidget: (value, meta) =>
+                      _buildAxisTitleWidget(value, monthlyDates),
+                ),
+              ),
             ),
           ),
           legend: _buildLegendIndicator(
@@ -359,6 +282,43 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
       ],
     );
   }
+
+  LineChartData _baseLineChartData({
+    required List<FlSpot> spots,
+    required List<LineChartBarData> bars,
+    required int fractionDigits,
+    required AxisTitles bottom,
+  }) => LineChartData(
+    lineTouchData: LineTouchData(
+      touchTooltipData: LineTouchTooltipData(
+        getTooltipColor: (touchedSpot) => Colors.white,
+        tooltipBorder: BorderSide(color: Colors.grey.shade300),
+        getTooltipItems: (t) => t
+            .map(
+              (s) => LineTooltipItem(
+                s.y.toStringAsFixed(2),
+                const TextStyle(color: Colors.black87, fontSize: 11),
+              ),
+            )
+            .toList(),
+      ),
+    ),
+    gridData: const FlGridData(show: true, drawVerticalLine: false),
+    titlesData: FlTitlesData(
+      leftTitles: _buildLeftAxisTitles(
+        spots: spots,
+        fractionDigits: fractionDigits,
+      ),
+      bottomTitles: bottom,
+      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+    ),
+    borderData: FlBorderData(
+      show: true,
+      border: Border.all(color: Colors.grey.shade300),
+    ),
+    lineBarsData: bars,
+  );
 
   Widget _buildAxisTitleWidget(double value, List<String> dateStrings) {
     final int idx = value.toInt();
@@ -381,18 +341,47 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
     );
   }
 
-  AxisTitles _buildLeftAxisTitles() {
+  double _leftReservedSize(List<FlSpot> spots, int fractionDigits) {
+    const style = TextStyle(fontSize: 9, fontWeight: FontWeight.bold);
+    double maxW = 0;
+
+    final ys = spots.map((e) => e.y).toList()..sort();
+    if (ys.isEmpty) return 32;
+    final samples = {ys.first, ys.last, (ys.first + ys.last) / 2};
+
+    for (final v in samples) {
+      final txt = v.toStringAsFixed(fractionDigits);
+      final tp = TextPainter(
+        text: TextSpan(text: txt, style: style),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
+      maxW = math.max(maxW, tp.width);
+    }
+    return (maxW + 18).clamp(32, 80);
+  }
+
+  AxisTitles _buildLeftAxisTitles({
+    required List<FlSpot> spots,
+    int fractionDigits = 1,
+  }) {
     return AxisTitles(
       sideTitles: SideTitles(
         showTitles: true,
-        reservedSize: 28,
+        reservedSize: _leftReservedSize(spots, fractionDigits),
+        interval: null,
         getTitlesWidget: (value, meta) {
+          if ((value - meta.max).abs() < 0.0001) return const SizedBox.shrink();
+
           return Text(
-            value.toStringAsFixed(0),
+            value.toStringAsFixed(fractionDigits),
+            maxLines: 1,
+            overflow: TextOverflow.visible,
             style: const TextStyle(
               fontSize: 9,
               color: Colors.blueGrey,
               fontWeight: FontWeight.bold,
+              fontFeatures: [FontFeature.tabularFigures()],
             ),
           );
         },
