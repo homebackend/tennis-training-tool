@@ -71,6 +71,7 @@ class _TrackerDataGridState extends State<TrackerDataGrid> {
             onPressed: () => BiometricDialogs.showMetricsRowForm(
               context,
               widget.sheet,
+              widget.activeKid,
               null,
               (newData) {
                 newData["kid_id"] = widget.activeKid["id"];

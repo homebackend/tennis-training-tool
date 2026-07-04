@@ -102,6 +102,7 @@ class TrackerTableSource extends DataTableSource {
               onPressed: () => BiometricDialogs.showMetricsRowForm(
                 context,
                 sheet,
+                activeKid,
                 currentRow,
                 (updated) async {
                   currentRow.addAll(updated);

@@ -414,11 +414,11 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
                 return;
               }
             }
-          }
 
-          _showSnackBar(
-            "Thanks for Resolving. Re-trying save (Attempt ${attempt + 1}/3)...",
-          );
+            _showSnackBar(
+              "Thanks for Resolving. Re-trying save (Attempt ${attempt + 1}/3)...",
+            );
+          }
         }
         await runSequentialSyncPipeline(
           attempt: attempt + 1,
