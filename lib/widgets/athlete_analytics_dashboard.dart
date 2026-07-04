@@ -64,10 +64,6 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
         xAxisDates.add(
           shortDate.isNotEmpty ? shortDate : spots.length.toString(),
         );
-
-        xAxisDates.add(
-          shortDate.isNotEmpty ? shortDate : spots.length.toString(),
-        );
       }
     }
     return spots;
