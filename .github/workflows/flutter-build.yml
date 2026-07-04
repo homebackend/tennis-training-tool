@@ -6,8 +6,6 @@ on:
       - main
     paths:
       - "pubspec.yaml"
-  pull_request:
-    branches: ["main"]
   workflow_dispatch:
 
 permissions:

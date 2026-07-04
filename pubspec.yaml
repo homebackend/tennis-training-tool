@@ -65,6 +65,8 @@ dependencies:
   intl: ^0.20.3
   collection: ^1.19.1
   yaml_edit: ^2.2.4
+  pretty_diff_text: ^2.1.0
+  yaml_writer: ^2.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

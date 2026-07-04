@@ -66,6 +66,8 @@ class ScheduleParser {
     if (node is YamlScalar) {
       return ScheduleItem(
         title: node.value.toString(),
+        isScalar: true,
+        hasSlots: false,
         slots: parent?.slots ?? [],
       );
     }
@@ -78,7 +80,7 @@ class ScheduleParser {
       return null;
     }
 
-    final title = node['title']?.toString() ?? 'Untitled';
+    final title = node['title']?.toString() ?? '__DUMMY__';
     final category = node['category']?.toString();
     final description = node['description']?.toString();
     final duration = node['time'] is int ? node['time'] as int : null;
@@ -96,9 +98,11 @@ class ScheduleParser {
       }
     }
 
+    bool hasSlots = false;
     final slots = <ScheduleSlot>[];
     final schedNode = node.nodes['schedule'];
     if (schedNode != null) {
+      hasSlots = true;
       final List<YamlNode> entries = schedNode is YamlList
           ? schedNode.nodes
           : (schedNode is YamlMap ? [schedNode] : []);
@@ -173,6 +177,7 @@ class ScheduleParser {
               ScheduleSlot(
                 iw,
                 id,
+                hasTime,
                 useStart,
                 useEnd,
                 s['description']?.toString(),
@@ -184,6 +189,7 @@ class ScheduleParser {
             ScheduleSlot(
               weeks,
               days,
+              hasTime,
               ts ?? '00:00',
               te ?? '23:59',
               s['description']?.toString(),
@@ -201,7 +207,12 @@ class ScheduleParser {
       for (final c in itemsNode.nodes) {
         final childItem = _parseNode(
           c,
-          ScheduleItem(title: title, slots: slots, children: []),
+          ScheduleItem(
+            title: title,
+            hasSlots: hasSlots,
+            slots: slots,
+            children: [],
+          ),
           includeDisabled,
         );
 
@@ -216,6 +227,7 @@ class ScheduleParser {
       category: category,
       description: description,
       enabled: enabled,
+      hasSlots: hasSlots,
       slots: slots,
       children: children,
       durationMin: duration,

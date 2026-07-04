@@ -9,9 +9,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter_common/tool.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:yaml/yaml.dart';
 
 import '../mixins/github_syncer.dart';
 import 'encrypt_decryt_service.dart';
@@ -45,7 +47,7 @@ class ScheduleSyncService with EncryptDecryptService, GitHubSyncer {
   String get githubFilePath => 'tennis-coaching/$localFileName';
 
   @override
-  bool get isModifiable => false;
+  bool get isModifiable => true;
 
   @override
   String get keyDocumentLastModified => keySchedLastmod;
@@ -74,6 +76,11 @@ class ScheduleSyncService with EncryptDecryptService, GitHubSyncer {
   @override
   Future<void> processContentPostLoad(Uint8List content) async {
     yaml = utf8.decode(content);
+  }
+
+  @override
+  Future<Uint8List> getContentsForWrite() async {
+    return utf8.encode(yaml ?? '');
   }
 
   @override

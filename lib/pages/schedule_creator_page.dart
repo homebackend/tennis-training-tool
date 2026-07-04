@@ -10,6 +10,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pretty_diff_text/pretty_diff_text.dart';
+import 'package:yaml/yaml.dart';
+import 'package:yaml_writer/yaml_writer.dart';
 
 import '../models/schedule.dart';
 import '../services/schedule_editor_service.dart';
@@ -31,7 +34,7 @@ class ScheduleCreatorPage extends StatefulWidget {
 class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
   bool _dirty = false;
   final _parser = ScheduleParser();
-  final _service = ScheduleEditorService();
+  late ScheduleEditorService _service;
   List<Map<String, dynamic>> _audioMap = [];
 
   DateTime start = DateTime.now();
@@ -43,7 +46,8 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
   void initState() {
     super.initState();
 
-    _weeksController = TextEditingController(text: weeks.toString());
+    _service = ScheduleEditorService(widget.initialYaml);
+
     rootBundle.loadString('assets/mapping.json').then((s) {
       final list = json.decode(s) as List;
       setState(() {
@@ -67,6 +71,8 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
       weeks = w;
       items.addAll(its);
     }
+
+    _weeksController = TextEditingController(text: weeks.toString());
   }
 
   @override
@@ -83,9 +89,9 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
         if (didPop) return;
         final shouldSave = await _confirmExit();
         if (shouldSave == true) {
-          _save();
+          await _save();
         } else if (shouldSave == false) {
-          Navigator.of(context).pop();
+          if (context.mounted) Navigator.of(context).pop();
         }
       },
       child: Scaffold(
@@ -95,7 +101,7 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
           ),
           actions: [
             FilledButton.icon(
-              onPressed: _save,
+              onPressed: _dirty ? _save : null,
               icon: const Icon(Icons.check),
               label: const Text('Save'),
             ),
@@ -239,11 +245,134 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
 
   void _markDirty() => setState(() => _dirty = true);
 
-  void _save() {
-    final yaml = _service.toYaml(start, weeks, items);
-    widget.onSave(yaml);
-    setState(() => _dirty = false);
-    Navigator.pop(context);
+  Future<void> _save() async {
+    final yaml = await _service.toYaml(start, weeks, items);
+    final shouldSave = await showYamlDiffDialog(
+      context,
+      existingYaml: widget.initialYaml ?? '',
+      generatedYaml: yaml,
+    );
+
+    if (shouldSave) {
+      widget.onSave(yaml);
+      setState(() => _dirty = false);
+      Navigator.pop(context);
+    }
+  }
+
+  dynamic _canonicalize(dynamic node, {bool sortLists = true}) {
+    if (node is YamlMap || node is Map) {
+      final map = <String, dynamic>{};
+      final keys = node.keys.map((k) => k.toString()).toList()..sort();
+      for (final k in keys) {
+        map[k] = _canonicalize(node[k], sortLists: sortLists);
+      }
+      return map;
+    }
+    if (node is YamlList || node is List) {
+      var list = node
+          .map((e) => _canonicalize(e, sortLists: sortLists))
+          .toList();
+      if (sortLists) {
+        list.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
+      }
+      return list;
+    }
+    return node;
+  }
+
+  String normalizeYaml(String yamlStr, {bool sortLists = true}) {
+    if (yamlStr.trim().isEmpty) return '';
+    final doc = loadYaml(yamlStr);
+    final canonical = _canonicalize(doc, sortLists: sortLists);
+    return YamlWriter().write(canonical);
+  }
+
+  Future<bool> showYamlDiffDialog(
+    BuildContext context, {
+    required String existingYaml,
+    required String generatedYaml,
+    bool ignoreListOrder = true,
+  }) async {
+    final oldNorm = normalizeYaml(existingYaml, sortLists: ignoreListOrder);
+    final newNorm = normalizeYaml(generatedYaml, sortLists: ignoreListOrder);
+
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) {
+            final baseStyle = Theme.of(ctx).textTheme.bodyMedium!.copyWith(
+              fontFamily: 'RobotoMono',
+              fontSize: 14,
+              height: 1.4,
+              color: Theme.of(ctx).colorScheme.onSurface,
+            );
+
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.compare_arrows),
+                  SizedBox(width: 8),
+                  Text('Review YAML changes'),
+                ],
+              ),
+              content: SizedBox(
+                width: MediaQuery.of(ctx).size.width * 0.85,
+                height: 460,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'green = added • red = removed (keys sorted)',
+                      style: Theme.of(ctx).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: Scrollbar(
+                        thumbVisibility: true,
+                        child: SingleChildScrollView(
+                          primary: true,
+                          padding: const EdgeInsets.all(12),
+                          child: PrettyDiffText(
+                            oldText: oldNorm,
+                            newText: newNorm,
+                            diffCleanupType: DiffCleanupType.EFFICIENCY,
+                            defaultTextStyle: baseStyle,
+                            addedTextStyle: baseStyle.copyWith(
+                              backgroundColor: Colors.green.withValues(
+                                alpha: 0.18,
+                              ),
+                              color: Colors.green[800],
+                            ),
+                            deletedTextStyle: baseStyle.copyWith(
+                              backgroundColor: Colors.red.withValues(
+                                alpha: 0.18,
+                              ),
+                              color: Colors.red[800],
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 }
 
@@ -355,6 +484,7 @@ class _ItemCardState extends State<_ItemCard> {
                     setsAndReps: _item.setsAndReps,
                     audio: _item.audio,
                     links: _item.links,
+                    hasSlots: _item.hasSlots,
                     slots: _item.slots,
                     enabled: !_item.enabled,
                     children: _item.children,
@@ -429,6 +559,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
   final customAudio = TextEditingController();
   List<String> links = [];
   final linkCtrl = TextEditingController();
+  late bool hasSlots;
   List<ScheduleSlot> slots = [];
   late bool enabled = widget.item?.enabled ?? true;
 
@@ -444,6 +575,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
   void initState() {
     super.initState();
     slots = List.from(widget.item?.slots ?? []);
+    hasSlots = slots.isNotEmpty;
     links = List.from(widget.item?.links ?? []);
     final a = widget.item?.audio ?? '';
     if (widget.audioMap.any((m) => m['file'] == a)) {
@@ -661,6 +793,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
       setsAndReps: sets.text.isEmpty ? null : sets.text,
       audio: (audio?.isEmpty ?? true) ? null : audio,
       links: links,
+      hasSlots: hasSlots,
       slots: slots,
       children: widget.item?.children ?? [],
     );
@@ -774,6 +907,7 @@ class _SlotPickerState extends State<_SlotPicker> {
       ScheduleSlot(
         weeks.toList()..sort(),
         days.toList()..sort(),
+        true,
         f(start),
         f(end),
         null,
