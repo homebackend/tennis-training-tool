@@ -25,21 +25,17 @@ class AudioNotifier {
   static final Map<String, AudioPlayer> _p = {};
 
   static Future<void> init() async {
-    final sounds = [
+    for (final path in [
       _loadedFromNetwork,
       _loadedFromCache,
       _errorOccurred,
       _changeCurrentItem,
-    ];
-
-    for (final path in sounds) {
+    ]) {
       final player = AudioPlayer();
-      await player.setPlayerMode(PlayerMode.lowLatency);
+      await player.setPlayerMode(PlayerMode.mediaPlayer);
+      await player.setReleaseMode(ReleaseMode.stop);
       await player.setSource(AssetSource(path));
       await player.setVolume(1.0);
-      await player.resume();
-      await player.pause();
-      await player.seek(Duration.zero);
       _p[path] = player;
     }
     log('AudioNotifier ready: ${_p.length} sounds');
@@ -54,13 +50,6 @@ class AudioNotifier {
     final player = _p[name];
     if (player == null) return;
     log('Playing audio: $name');
-    player.seek(Duration.zero);
-    player.resume();
-  }
-
-  static void dispose() {
-    for (final p in _p.values) {
-      p.dispose();
-    }
+    player.stop().then((_) => player.resume());
   }
 }
