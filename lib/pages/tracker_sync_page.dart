@@ -13,37 +13,38 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../mixins/page_common.dart';
 import '../services/tracker_sync_service.dart';
 import '../tool.dart';
 import '../widgets/athlete_analytics_dashboard.dart';
 import '../widgets/biometric_dialogs.dart';
-import '../widgets/athlete_tracker_setup.dart';
 import '../widgets/athlete_selector_bar.dart';
 import '../widgets/tracker_conflict_dialog.dart';
 import '../widgets/tracker_data_grid.dart';
 
 class TrackerSyncPage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
-  const TrackerSyncPage(this.secureStorage, {super.key});
+  final SharedPreferences sharedPreferences;
+  const TrackerSyncPage(
+    this.secureStorage,
+    this.sharedPreferences, {
+    super.key,
+  });
 
   @override
   State<TrackerSyncPage> createState() => _TrackerSyncPageState();
 }
 
 class _TrackerSyncPageState extends State<TrackerSyncPage>
-    with TickerProviderStateMixin {
+    with PageCommon, TickerProviderStateMixin {
   static final String _keyLastSelectedKidId = 'last_selected_kid_id';
 
   late final TrackerSyncService _syncService;
   StreamSubscription<void>? _resyncSubscription;
-  final _repoController = TextEditingController();
-  final _tokenController = TextEditingController();
-  final _cryptoPasswordController = TextEditingController();
 
   bool _isLoading = true;
   bool _isSyncing = false;
   bool _localDataModified = false;
-  bool _isConfigured = false;
   String? _selectedKidId;
   TabController? _tabController;
 
@@ -52,9 +53,8 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
   @override
   void initState() {
     super.initState();
-    _syncService = TrackerSyncService(widget.secureStorage);
-    _loadSession();
 
+    _init();
     _resyncSubscription = TrackerSyncService.globalResyncTrigger.stream.listen((
       _,
     ) {
@@ -64,28 +64,40 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
     });
   }
 
-  Future<void> _loadSession() async {
-    _isConfigured = await _syncService.loadCachedSession();
-    _localDataModified = await _syncService.hasTrackerDataModified();
-    if (_isConfigured) {
-      _repoController.text = 'Configured';
-      if (_syncService.appData["kids"].isNotEmpty) {
-        final prefs = await SharedPreferences.getInstance();
-        String? selectedKidId = prefs.getString(_keyLastSelectedKidId);
-        if (selectedKidId != null &&
-            _syncService.appData["kids"].any(
-              (kid) => kid["id"] == selectedKidId,
-            )) {
-          _selectedKidId = selectedKidId;
-        } else {
-          _selectedKidId = _syncService.appData["kids"].first["id"];
-        }
-        _initializeTrackingStates();
+  Future<void> _init() async {
+    _syncService = TrackerSyncService(
+      widget.secureStorage,
+      widget.sharedPreferences,
+      () => setState(() => _isSyncing = true),
+      () => setState(() => _isSyncing = false),
+      () => setState(() => _isSyncing = false),
+      (self) async {
+        if (mounted) _resetAndRefreshAllViewports();
+      },
+    );
+    await _loadSession();
+  }
 
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _resetAndRefreshAllViewports();
-        });
+  Future<void> _loadSession() async {
+    await _syncService.initialize();
+    _localDataModified = await _syncService.hasSyncDataModified();
+    if (_syncService.appData["kids"].isNotEmpty) {
+      String? selectedKidId = widget.sharedPreferences.getString(
+        _keyLastSelectedKidId,
+      );
+      if (selectedKidId != null &&
+          _syncService.appData["kids"].any(
+            (kid) => kid["id"] == selectedKidId,
+          )) {
+        _selectedKidId = selectedKidId;
+      } else {
+        _selectedKidId = _syncService.appData["kids"].first["id"];
       }
+      _initializeTrackingStates();
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _resetAndRefreshAllViewports();
+      });
     }
     if (mounted) setState(() => _isLoading = false);
   }
@@ -167,46 +179,13 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
     }
   }
 
-  Future<void> _triggerConfigSync() async {
-    if (_repoController.text.isEmpty ||
-        _tokenController.text.isEmpty ||
-        _cryptoPasswordController.text.isEmpty) {
-      _showSnackBar("Please fill out all setup fields.");
-      return;
-    }
-    setState(() => _isLoading = true);
-    try {
-      await _syncService.saveServerConfig(
-        repo: _repoController.text.trim(),
-        token: _tokenController.text.trim(),
-        password: _cryptoPasswordController.text.trim(),
-      );
-      await _syncService.syncFromGitHub();
-
-      if (!mounted) return;
-
-      if (_syncService.appData["kids"].isNotEmpty) {
-        _selectedKidId = _syncService.appData["kids"].first["id"];
-      }
-      _initializeTrackingStates();
-      setState(() => _isConfigured = true);
-      _resetAndRefreshAllViewports();
-    } catch (e) {
-      if (mounted) _showSnackBar("Sync failed: $e");
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
   void _showSnackBar(String m) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   @override
   void dispose() {
+    _syncService.disposeSyncer();
     _resyncSubscription?.cancel();
-    _repoController.dispose();
-    _tokenController.dispose();
-    _cryptoPasswordController.dispose();
     _tabController?.dispose();
     super.dispose();
   }
@@ -217,19 +196,12 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (!_isConfigured) {
-      return AthleteTrackerSetup(
-        repoController: _repoController,
-        tokenController: _tokenController,
-        cryptoPasswordController: _cryptoPasswordController,
-        onInitialize: _triggerConfigSync,
-      );
-    }
-
-    final activeKid = _syncService.appData["kids"].firstWhere(
-      (k) => k["id"] == _selectedKidId,
-      orElse: null,
-    );
+    final activeKid = _selectedKidId != null
+        ? _syncService.appData["kids"].firstWhere(
+            (k) => k["id"] == _selectedKidId,
+            orElse: null,
+          )
+        : null;
     final sheets = _syncService.schema?["sheets"] as List? ?? [];
 
     return Scaffold(
@@ -252,13 +224,10 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
               onPressed: _isSyncing
                   ? null
                   : () async {
-                      setState(() => _isSyncing = true);
                       try {
                         await runSequentialSyncPipeline();
                       } catch (e) {
                         _showSnackBar("Error: $e");
-                      } finally {
-                        if (mounted) setState(() => _isSyncing = false);
                       }
                     },
             ),
@@ -269,28 +238,16 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
               onPressed: _isSyncing
                   ? null
                   : () async {
-                      setState(() => _isSyncing = true);
                       try {
-                        await _syncService.syncFromGitHub();
+                        await _syncService.syncData();
                         _resetAndRefreshAllViewports();
                         _showSnackBar("Synced!");
                       } catch (e) {
                         _showSnackBar("Error: $e");
-                      } finally {
-                        if (mounted) setState(() => _isSyncing = false);
                       }
                     },
             ),
-          /*
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Disconnect',
-            onPressed: () async {
-              await _syncService.clearSavedSession();
-              setState(() => _isConfigured = false);
-            },
-          ),
-          */
+          ...getAppBarCommonActions(),
         ],
         bottom: _tabController != null
             ? TabBar(
@@ -311,8 +268,10 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
             activeKid: activeKid,
             onKidChanged: (v) async {
               if (v != null) {
-                final prefs = await SharedPreferences.getInstance();
-                prefs.setString(_keyLastSelectedKidId, v);
+                await widget.sharedPreferences.setString(
+                  _keyLastSelectedKidId,
+                  v,
+                );
               }
               setState(() {
                 _selectedKidId = v;
@@ -324,7 +283,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
               age,
               gender,
             ) async {
-              await _syncService.setTrackerDataModified(true);
+              await _syncService.setSyncDataModified(true);
               final nid = getNewUuid();
               setState(() {
                 _localDataModified = true;
@@ -336,7 +295,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
                 });
                 _selectedKidId ??= nid;
               });
-              _syncService.cacheLocally();
+              _syncService.cacheAppDataLocally();
               _initializeTrackingStates();
               _resetAndRefreshAllViewports();
             }),
@@ -344,19 +303,19 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
               context,
               activeKid,
               (name, age, gender) async {
-                await _syncService.setTrackerDataModified(true);
+                await _syncService.setSyncDataModified(true);
                 setState(() {
                   _localDataModified = true;
                   activeKid!["name"] = name;
                   activeKid["age"] = age;
                   activeKid["gender"] = gender;
                 });
-                _syncService.cacheLocally();
+                _syncService.cacheAppDataLocally();
                 _resetAndRefreshAllViewports();
               },
             ),
             onKidDeleted: () async {
-              await _syncService.setTrackerDataModified(true);
+              await _syncService.setSyncDataModified(true);
               setState(() {
                 _localDataModified = true;
                 _syncService.appData["kids"].removeWhere(
@@ -369,7 +328,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
                     ? _syncService.appData["kids"].first["id"]
                     : null;
               });
-              _syncService.cacheLocally();
+              _syncService.cacheAppDataLocally();
               _initializeTrackingStates();
               _resetAndRefreshAllViewports();
             },
@@ -403,7 +362,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
                           syncService: _syncService,
                           onFetchNextPage: () => _fetchNextSlice(sid),
                           onRowModified: () {
-                            _syncService.setTrackerDataModified(true);
+                            _syncService.setSyncDataModified(true);
                             setState(() => _localDataModified = true);
                             _resetAndRefreshAllViewports();
                           },
@@ -429,7 +388,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
       await _syncService.pushToGitHubWithAutoMerge(
         retryServerFileSha: retryServerFileSha,
       );
-      await _syncService.setTrackerDataModified(false);
+      await _syncService.setSyncDataModified(false);
       setState(() => _localDataModified = false);
       _resetAndRefreshAllViewports();
       _showSnackBar("Saved tracker data!");
@@ -443,21 +402,23 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
           );
 
           for (final conflict in e.conflicts) {
-            final ok = await showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => TrackerConflictResolutionDialog(conflict),
-            );
+            if (context.mounted) {
+              final ok = await showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => TrackerConflictResolutionDialog(conflict),
+              );
 
-            if (ok != true) {
-              _showSnackBar('Saving data cancelled!');
-              return;
+              if (ok != true) {
+                _showSnackBar('Saving data cancelled!');
+                return;
+              }
             }
-          }
 
-          _showSnackBar(
-            "Thanks for Resolving. Re-trying save (Attempt ${attempt + 1}/3)...",
-          );
+            _showSnackBar(
+              "Thanks for Resolving. Re-trying save (Attempt ${attempt + 1}/3)...",
+            );
+          }
         }
         await runSequentialSyncPipeline(
           attempt: attempt + 1,
@@ -468,4 +429,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
       }
     }
   }
+
+  @override
+  FlutterSecureStorage get secureStorage => widget.secureStorage;
 }

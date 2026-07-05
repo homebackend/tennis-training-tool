@@ -13,24 +13,24 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../mixins/github_syncer.dart';
+import '../mixins/page_common.dart';
 import '../services/encrypt_decryt_service.dart';
 import '../services/pdf_loader_service.dart';
-import '../services/preferences_backup_service.dart';
-import '../widgets/setup_page.dart';
 
 class PdfViewerPage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
-  const PdfViewerPage(this.secureStorage, {super.key});
+  final SharedPreferences sharedPreferences;
+  const PdfViewerPage(this.secureStorage, this.sharedPreferences, {super.key});
 
   @override
   State<PdfViewerPage> createState() => _PdfViewerPageState();
 }
 
 class _PdfViewerPageState extends State<PdfViewerPage>
-    with EncryptDecryptService, PdfLoaderService {
+    with PageCommon, EncryptDecryptService, PdfLoaderService, GitHubSyncer {
   static final String keyPdfIsTocVisible = 'pdf_is_toc_visible';
 
-  late final PreferencesBackupService _backupService;
   late final PdfViewerController _pdfController;
   final _outlineNotifier = ValueNotifier<List<PdfOutlineNode>?>(null);
   final _currentPageNotifier = ValueNotifier<int>(1);
@@ -40,15 +40,13 @@ class _PdfViewerPageState extends State<PdfViewerPage>
   @override
   void initState() {
     super.initState();
-    _backupService = PreferencesBackupService(secureStorage);
     _pdfController = PdfViewerController();
     _init();
-    initPdfLoader();
   }
 
   Future<void> _init() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    _isTocVisible = prefs.getBool(keyPdfIsTocVisible) ?? true;
+    await initPdfLoader();
+    _isTocVisible = sharedPreferences.getBool(keyPdfIsTocVisible) ?? true;
   }
 
   @override
@@ -67,13 +65,8 @@ class _PdfViewerPageState extends State<PdfViewerPage>
   @override
   FlutterSecureStorage get secureStorage => widget.secureStorage;
 
-  void _showSnackBar(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
+  @override
+  SharedPreferences get sharedPreferences => widget.sharedPreferences;
 
   @override
   void dispose() {
@@ -87,24 +80,16 @@ class _PdfViewerPageState extends State<PdfViewerPage>
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (!isConfigured) {
-      return SetupPage(
-        widget.secureStorage,
-        saveConfigAndFetch,
-        _backupService,
-        pickLocal: true,
-        pickLocalCopy: pickLocalDocument,
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: Text(isCheckingNetwork ? 'Updating...' : 'Tennis Playbook'),
         leading: IconButton(
           icon: Icon(_isTocVisible ? Icons.menu_open : Icons.menu),
           onPressed: () async {
-            SharedPreferences prefs = await SharedPreferences.getInstance();
-            prefs.setBool(keyPdfIsTocVisible, !_isTocVisible);
+            await widget.sharedPreferences.setBool(
+              keyPdfIsTocVisible,
+              !_isTocVisible,
+            );
             setState(() => _isTocVisible = !_isTocVisible);
           },
         ),
@@ -119,18 +104,15 @@ class _PdfViewerPageState extends State<PdfViewerPage>
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.upload),
-            tooltip: 'Export Settings',
-            onPressed: () async {
-              final msg = await _backupService.exportSystemPreferences();
-              if (msg != null) _showSnackBar(msg);
-            },
+            icon: Icon(syncInProgress ? Icons.sync_lock : Icons.sync),
+            onPressed: syncInProgress ? null : syncData,
           ),
           IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: 'Settings',
-            onPressed: () => setState(() => isConfigured = false),
+            icon: const Icon(Icons.upload),
+            tooltip: 'Upload New Document',
+            onPressed: () async => pickLocalDocument(),
           ),
+          ...getAppBarCommonActions(),
         ],
       ),
       body: Row(
@@ -198,11 +180,12 @@ class _PdfViewerPageState extends State<PdfViewerPage>
                   calculateInitialZoom: (d, c, fit, cover) => cover,
                 ),
                 onViewerReady: (d, c) => _extractTableOfContents(d),
-                onPageChanged: (p) {
+                onPageChanged: (p) async {
                   if (p != null) {
                     _currentPageNotifier.value = p;
-                    SharedPreferences.getInstance().then(
-                      (s) => s.setInt('last_pdf_page', p),
+                    await sharedPreferences.setInt(
+                      PdfLoaderService.keyLastPdfPage,
+                      p,
                     );
                   }
                 },

@@ -6,12 +6,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'pages/audio_player_page.dart';
-import 'pages/debug_sync_page.dart';
 import 'pages/schedule_page.dart';
 import 'pages/tracker_sync_page.dart';
 import 'pages/pdf_viewer_page.dart';
@@ -35,18 +34,20 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   void initState() {
     super.initState();
-    _pages = [
-      SchedulePage(secureStorage),
-      PdfViewerPage(secureStorage),
-      const AudioPlayerPage(),
-      TrackerSyncPage(secureStorage),
-      if (kDebugMode) DebugSyncPage(),
-    ];
 
     _initialize();
   }
 
   Future<void> _initialize() async {
+    SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+
+    _pages = [
+      SchedulePage(secureStorage, sharedPreferences),
+      PdfViewerPage(secureStorage, sharedPreferences),
+      const AudioPlayerPage(),
+      TrackerSyncPage(secureStorage, sharedPreferences),
+    ];
+
     await PreferencesBackupService(secureStorage).upgradePreferences();
     final gitRepo = await secureStorage.read(
       key: PreferencesBackupService.keyGitRepo,
@@ -116,12 +117,6 @@ class _MainNavigationState extends State<MainNavigation> {
             icon: Icon(Icons.analytics_outlined),
             label: 'Athlete Tracker',
           ),
-          if (kDebugMode)
-            BottomNavigationBarItem(
-              icon: Icon(Icons.analytics),
-              backgroundColor: Colors.red,
-              label: 'Debug Athlete Tracker',
-            ),
         ],
       ),
     );

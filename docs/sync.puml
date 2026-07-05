@@ -1,0 +1,115 @@
+@startuml Sync Sequence Diagram
+
+actor "End User" as u
+participant "UI" as ui
+participant "Timer" as t
+control "Sync Service" as ss
+collections "Cache" as cache
+boundary "Github Client" as ghc
+database "Github" as gh
+
+!procedure $syncInProgress()
+  ss -> ui: Sync is in progress
+  ui -> u: Disable edit and sync buttons
+!endprocedure
+
+!procedure $syncIsDone()
+  ss -> ui: Sync is done
+  ui -> u: Enable edit and sync buttons
+!endprocedure
+
+!procedure $mergeDocument()
+  ui -> u: Show merge dialog
+  u -> ui: Resolves conflicts
+  ui -> ss: Save document data
+  $saveDocumentWithMerge()
+!endprocedure
+
+!procedure $loadDocument()
+  $syncInProgress()
+  ghc -> gh: Get latest document with last known sha
+  alt if status code is 304
+    ghc -> ss: 304, null, null
+  else
+    ghc -> ss: 200, <sha>, <content>
+    ghc -> cache: Save <content>
+    ghc -> cache: Save sha
+    ghc -> ui: Send <content>, <sha>
+  end
+  $syncIsDone()
+!endprocedure
+
+!procedure $saveDocument($content, $sha, $msg)
+  ss -> ghc: save $content with $sha ($msg)
+  ghc -> gh: save $content with $sha
+  gh -> ghc: return <save-sha>
+  ghc -> ss: <save-sha>, <$content>
+!endprocedure
+
+!procedure $saveDocumentWithMerge()
+    $syncInProgress()    
+    ghc -> gh: Save latest document with last known sha
+    alt if server data has been modified
+      gh -> ghc: 409 error
+      ghc -> gh: Get latest document, no sha
+      gh -> ghc: return <new-sha>, <new-content>
+      ghc -> ss: return 409, <new-sha>, <new-content>
+      alt if merging is not supported
+        $saveDocument("original-content", "new-sha", "essentially overwrite")
+      else if merging is supported
+        ss -> ss: Perform auto merge
+        alt is user intervention required
+          ss -x ui: Throw ConcurrentModificationException
+          ui -> u: Show sync blocked till changes merge
+          ... nothing more to be done here - sync/edit remains blocked ...
+        end
+        $saveDocument("merged-content", "new-sha", "merged document write")
+      end
+    else if server data hasn't been modified
+      gh -> ghc: 200
+      ghc -> ss: 200
+    end
+    $showContentToUser()
+    $syncIsDone()
+    ... NOTHING ELSE TO BE DONE HERE ...
+!endprocedure
+
+!procedure $syncDocument()
+  ss -> ghc: Make Sync Request
+  alt if data has been modified
+    $saveDocumentWithMerge()
+  end
+
+  $loadDocument()
+!endprocedure
+
+!procedure $showContentToUser()
+  ss -> ui: Update content
+  ui -> u: Show updated content to user
+!endprocedure
+
+alt Sync request from UI
+  ui -> ss: Sync Request
+else Sync request from Timer
+  t -> ss: Sync Request
+end
+
+alt If sync is blocked
+  $mergeDocument()
+end
+  
+alt if sha, cache file exist
+  par #LightBlue Background task
+    $showContentToUser()
+    $syncDocument()
+  end
+  ss -> cache: Read cache
+  ss -> ui: Send data
+  $showContentToUser()
+  ... nothing else to be done for now ...
+end
+
+$syncDocument()
+$showContentToUser()
+
+@enduml

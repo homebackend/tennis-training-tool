@@ -8,97 +8,85 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer';
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../mixins/github_syncer.dart';
 import 'encrypt_decryt_service.dart';
 
-class ScheduleSyncService with EncryptDecryptService {
+class ScheduleSyncService with EncryptDecryptService, GitHubSyncer {
   static final keySchedLastmod = 'sched_lastmod';
-  static final keySchedEtag = 'sched_etag';
+  static final keySchedSha = 'sched_sha';
+  static final keySchedHasModified = 'sched_has_modified';
 
-  final String url;
-  final String password;
+  final FlutterSecureStorage _secureStorage;
+  final SharedPreferences _sharedPreferences;
+  final http.Client _client;
   final void Function() syncNotifier;
   final void Function() syncDoneNotifier;
-  final Future<void> Function(String yaml) loader;
+  final Future<void> Function(ScheduleSyncService self) loader;
   ScheduleSyncService(
-    this.url,
-    this.password,
+    this._secureStorage,
+    this._sharedPreferences,
     this.syncNotifier,
     this.syncDoneNotifier,
-    this.loader,
-  );
+    this.loader, {
+    http.Client? client,
+  }) : _client = client ?? http.Client();
 
-  Future<String> _loadFromNetwork(bool cacheFileExists) async {
-    syncNotifier();
-    final prefs = await SharedPreferences.getInstance();
-    final lastMod = prefs.getString(keySchedLastmod) ?? '';
-    final lastEtag = prefs.getString(keySchedEtag) ?? '';
-    try {
-      final res = await http.get(
-        Uri.parse(url),
-        headers: {
-          if (lastEtag.isNotEmpty) 'If-None-Match': lastEtag,
-          if (lastMod.isNotEmpty) 'If-Modified-Since': lastMod,
-        },
-      );
+  String? yaml;
 
-      final cacheFile = await _cacheFile();
-      if (cacheFileExists && res.statusCode == 304) {
-        return await cacheFile.readAsString();
-      }
-      if (res.statusCode == 200) {
-        final plain = await decryptBytes(res.bodyBytes, password);
-        final text = utf8.decode(plain);
-        await cacheFile.writeAsString(text);
-        final lm = res.headers['last-modified'];
-        if (lm != null) await prefs.setString(keySchedLastmod, lm);
-        final etag = res.headers['etag'];
-        if (etag != null) await prefs.setString(keySchedEtag, etag);
-        if (cacheFileExists) {
-          // If cacheFileExists is true that means earlier
-          // we loaded data from cache and now new version
-          // of cache is available. So notify.
-          loader(text);
-        }
-        return text;
-      }
+  @override
+  http.Client get client => _client;
 
-      log('Error during http call: ${res.statusCode}');
-      throw (Exception('HTTP ${res.statusCode}'));
-    } catch (e) {
-      log('Error: $e');
-      rethrow;
-    }
+  @override
+  String get githubFilePath => 'tennis-coaching/$localFileName';
+
+  @override
+  bool get isModifiable => false;
+
+  @override
+  String get keyDocumentLastModified => keySchedLastmod;
+
+  @override
+  String get keyDocumentSha => keySchedSha;
+
+  @override
+  String get keyHasSyncDataModified => keySchedHasModified;
+
+  @override
+  String get localFileName => 'training_schedule.yaml';
+
+  @override
+  void notifySyncDone() => syncDoneNotifier();
+
+  @override
+  void notifySyncFailed() => syncDoneNotifier();
+
+  @override
+  void notifySyncStarted() => syncNotifier();
+
+  @override
+  Future<void> processConflicts(Uint8List serverData, String serverSha) async {}
+
+  @override
+  Future<void> processContentPostLoad(Uint8List content) async {
+    yaml = utf8.decode(content);
   }
 
-  Future<String> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastMod = prefs.getString(keySchedLastmod) ?? '';
-    final lastEtag = prefs.getString(keySchedEtag) ?? '';
-    final cacheFile = await _cacheFile();
-    bool cacheFileExists =
-        cacheFile.existsSync() && (lastMod.isNotEmpty || lastEtag.isNotEmpty);
-    if (cacheFileExists) {
-      unawaited(
-        _loadFromNetwork(true).catchError((e) async {
-          log('Error during background sync: $e');
-          syncDoneNotifier();
-          return await cacheFile.readAsString();
-        }),
-      );
-      return await cacheFile.readAsString();
-    } else {
-      return await _loadFromNetwork(false);
-    }
+  @override
+  FlutterSecureStorage get secureStorage => _secureStorage;
+
+  @override
+  SharedPreferences get sharedPreferences => _sharedPreferences;
+
+  @override
+  Future<void> syncDataLoader() async {
+    await loader(this);
   }
 
-  Future<File> _cacheFile() async {
-    final dir = await getApplicationDocumentsDirectory();
-    return File('${dir.path}/training_schedule.yaml');
-  }
+  @override
+  Duration get syncDuration => Duration(minutes: 30);
 }

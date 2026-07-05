@@ -14,6 +14,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'constants.dart';
 import 'main_navigation.dart';
+import 'mixins/github_syncer.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,8 @@ Future<void> main() async {
     androidShowNotificationBadge: true,
     androidNotificationIcon: 'drawable/ic_bg_audio_icon',
   );
+
+  await AudioNotifier.init();
 
   if (isDesktopPlatform()) {
     await windowManager.ensureInitialized();
