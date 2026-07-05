@@ -14,7 +14,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'constants.dart';
 import 'main_navigation.dart';
-import 'mixins/github_syncer.dart';
+import 'tool.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
