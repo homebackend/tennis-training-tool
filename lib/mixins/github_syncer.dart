@@ -26,7 +26,6 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -34,49 +33,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/encrypt_decryt_service.dart';
 import '../services/preferences_backup_service.dart';
-
-class AudioNotifier {
-  static const _basePath = 'sounds';
-  static const _loadedFromNetwork = '$_basePath/loaded_from_network.mp3';
-  static const _loadedFromCache = '$_basePath/loaded_from_cache.mp3';
-  static const _errorOccurred = '$_basePath/error_occurred.mp3';
-
-  static final Map<String, AudioPlayer> _p = {};
-
-  static Future<void> init() async {
-    final sounds = [_loadedFromNetwork, _loadedFromCache, _errorOccurred];
-
-    for (final path in sounds) {
-      final player = AudioPlayer();
-      await player.setPlayerMode(PlayerMode.lowLatency);
-      await player.setSource(AssetSource(path));
-      await player.setVolume(1.0);
-      await player.resume();
-      await player.pause();
-      await player.seek(Duration.zero);
-      _p[path] = player;
-    }
-    log('AudioNotifier ready: ${_p.length} sounds');
-  }
-
-  static void loadedFromNetwork() => play(_loadedFromNetwork);
-  static void loadedFromCache() => play(_loadedFromCache);
-  static void errorOccurred() => play(_errorOccurred);
-
-  static void play(String name) {
-    final player = _p[name];
-    if (player == null) return;
-    log('Playing audio: $name');
-    player.seek(Duration.zero);
-    player.resume();
-  }
-
-  static void dispose() {
-    for (final p in _p.values) {
-      p.dispose();
-    }
-  }
-}
+import '../tool.dart';
 
 mixin GitHubSyncer<DataType> implements EncryptDecryptService {
   static final keyGitRepo = PreferencesBackupService.keyGitRepo;

@@ -15,6 +15,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tennis_training_tool/tool.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 
@@ -43,6 +44,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
   List<ScheduleItem> _items = [];
   DateTime _currentDay = DateTime.now();
   DateTime _currentTime = DateTime.now();
+  String? _currentItem;
   late DateTime _leftLimit;
   late DateTime _rightLimit;
   Timer? _pageTimer;
@@ -258,6 +260,15 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
 
     final slot = _slotForDay(item);
     final isLive = parentLive || _isLive(item);
+
+    if (!parentLive && isLive) {
+      if (_currentItem != item.title) {
+        AudioNotifier.changeCurrentItem();
+      }
+
+      _currentItem = item.title;
+    }
+
     final itemKey = depth == 0
         ? _itemKeys.putIfAbsent(item.title, () => GlobalKey())
         : null;
