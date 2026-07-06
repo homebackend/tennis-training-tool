@@ -66,6 +66,10 @@ dependencies:
   collection: ^1.19.1
   yaml_edit: ^2.2.4
   audioplayers: ^6.8.1
+  pretty_diff_text: ^2.1.0
+  yaml_writer: ^2.1.0
+  deviation: ^0.1.0
+  flutter_highlight: ^0.7.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
