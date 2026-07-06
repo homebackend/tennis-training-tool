@@ -52,7 +52,6 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
   late int _cycleWeeks;
   String _selectedCategory = 'all';
   bool _syncInProgress = false;
-  String? _currentYaml;
 
   late AudioPlayer _audioPlayer;
   String? _currentPlayingFile;
@@ -144,7 +143,6 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
   }
 
   Future<void> _loadFromYaml(String yaml) async {
-    _currentYaml = yaml;
     try {
       final parser = ScheduleParser();
       final (start, cycleWeeks, items) = parser.parse(
@@ -292,7 +290,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
       ...(slot.description ?? '').split('\n'),
     ].where((r) => r.isNotEmpty);
 
-    if (item.title == 'Untitled' || item.title.trim().isEmpty) {
+    if (item.title == ScheduleParser.dummyTitle || item.title.trim().isEmpty) {
       return Column(
         children: children.map((c) => _buildNode(c, depth, isLive)).toList(),
       );
@@ -503,6 +501,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
           IconButton(
             icon: Icon(_syncInProgress ? Icons.sync_lock : Icons.sync),
             onPressed: _syncInProgress ? null : _load,
+            tooltip: 'Sync Latest Schedule',
           ),
           if (kDebugMode)
             IconButton(
@@ -512,8 +511,13 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
                   context,
                   MaterialPageRoute(
                     builder: (_) => ScheduleCreatorPage(
-                      initialYaml: _currentYaml,
-                      onSave: (newYaml) => _loadFromYaml(newYaml),
+                      initialYaml: _syncService.yaml,
+                      onSave: (newYaml) async {
+                        _syncService.yaml = newYaml;
+                        await _syncService.setSyncDataModified(true);
+                        await _loadFromYaml(newYaml);
+                        await _syncService.syncData();
+                      },
                     ),
                   ),
                 );
