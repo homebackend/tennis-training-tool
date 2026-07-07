@@ -172,6 +172,7 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
             ),
             ...items.asMap().entries.map(
               (e) => _ItemCard(
+                key: ValueKey(e.value),
                 item: e.value,
                 maxWeeks: weeks,
                 audioMap: _audioMap,
@@ -185,6 +186,7 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
                   for (int i = e.key; i < items.length; i++) {
                     final item = items[i];
                     item.index--;
+                    item.changed = true;
                   }
                 },
               ),
@@ -276,6 +278,7 @@ class _ItemCard extends StatefulWidget {
   final int maxWeeks;
   final List<Map<String, dynamic>> audioMap;
   const _ItemCard({
+    super.key,
     required this.item,
     required this.onChanged,
     required this.onDelete,
@@ -299,6 +302,14 @@ class _ItemCardState extends State<_ItemCard> {
   void _update(ScheduleItem u) {
     setState(() => _item = u);
     widget.onChanged(u);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ItemCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item != widget.item) {
+      _item = widget.item;
+    }
   }
 
   @override
@@ -410,6 +421,7 @@ class _ItemCardState extends State<_ItemCard> {
             (e) => Padding(
               padding: const EdgeInsets.only(left: 24, right: 8, bottom: 8),
               child: _ItemCard(
+                key: ValueKey(e.value),
                 item: e.value,
                 maxWeeks: widget.maxWeeks,
                 audioMap: widget.audioMap,
@@ -427,6 +439,7 @@ class _ItemCardState extends State<_ItemCard> {
                   for (int i = e.key; i < _item.children.length; i++) {
                     final item = _item.children[i];
                     item.index--;
+                    item.changed = true;
                   }
                   _update(_item..changed = true);
                 },

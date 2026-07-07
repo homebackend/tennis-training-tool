@@ -7,6 +7,7 @@
  */
 
 import 'package:deviation/deviation.dart';
+// ignore: experimental_member_use
 import 'package:deviation/unified_diff.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';

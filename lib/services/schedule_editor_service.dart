@@ -36,7 +36,7 @@ class ScheduleEditorService {
 
     editor.update(['schedule', 'start'], _date(start));
     editor.update(['schedule', 'repeatWeeks'], cycleWeeks);
-    updateItems(editor, ['schedule', 'items'], items);
+    updateItems(editor, ['schedule', 'items'], items, singleItemAsArray: true);
 
     return editor.toString();
   }
@@ -118,7 +118,7 @@ class ScheduleEditorService {
           }
         }
       } catch (_) {
-        editor.update([...parentKeys, i], itemToYaml(item));
+        appendToList(editor, parentKeys, item);
       }
     } else if (item is String || item is int) {
       final currentItems = editor.parseAt(parentKeys).value;
