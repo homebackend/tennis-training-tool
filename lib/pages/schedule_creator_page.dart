@@ -317,19 +317,23 @@ class _ItemCardState extends State<_ItemCard> {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: ExpansionTile(
-        title: Row(
-          children: [
-            if (!_item.enabled)
-              const Icon(Icons.visibility_off, size: 16, color: Colors.grey),
-            const SizedBox(width: 6),
-            Text(
-              _item.title,
-              style: TextStyle(
-                decoration: _item.enabled ? null : TextDecoration.lineThrough,
-                color: _item.enabled ? null : Colors.grey,
+        title: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              if (!_item.enabled)
+                const Icon(Icons.visibility_off, size: 16, color: Colors.grey),
+              const SizedBox(width: 6),
+              Text(
+                _item.title,
+                style: TextStyle(
+                  decoration: _item.enabled ? null : TextDecoration.lineThrough,
+                  color: _item.enabled ? null : Colors.grey,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         subtitle: Text(
           [

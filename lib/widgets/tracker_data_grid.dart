@@ -112,6 +112,7 @@ class _TrackerDataGridState extends State<TrackerDataGrid> {
 
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
+      physics: BouncingScrollPhysics(),
       child: PaginatedDataTable(
         horizontalMargin: 24,
         header: const Text(
@@ -172,7 +173,7 @@ class _TrackerDataGridState extends State<TrackerDataGrid> {
                         ? LayoutBuilder(
                             builder: (context, constraints) {
                               final computedMinimumWidth =
-                                  (widget.columns.length * 140.0) + 100.0;
+                                  (widget.columns.length * 200.0) + 100.0;
 
                               final tableTargetWidth =
                                   constraints.maxWidth > computedMinimumWidth

@@ -9,7 +9,6 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
@@ -503,26 +502,25 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
             onPressed: _syncInProgress ? null : _load,
             tooltip: 'Sync Latest Schedule',
           ),
-          if (kDebugMode)
-            IconButton(
-              icon: const Icon(Icons.edit_calendar_outlined),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ScheduleCreatorPage(
-                      initialYaml: _syncService.yaml,
-                      onSave: (newYaml) async {
-                        _syncService.yaml = newYaml;
-                        await _syncService.setSyncDataModified(true);
-                        await _loadFromYaml(newYaml);
-                        await _syncService.syncData();
-                      },
-                    ),
+          IconButton(
+            icon: const Icon(Icons.edit_calendar_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ScheduleCreatorPage(
+                    initialYaml: _syncService.yaml,
+                    onSave: (newYaml) async {
+                      _syncService.yaml = newYaml;
+                      await _syncService.setSyncDataModified(true);
+                      await _loadFromYaml(newYaml);
+                      await _syncService.syncData();
+                    },
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
+          ),
           ...getAppBarCommonActions(),
         ],
       ),

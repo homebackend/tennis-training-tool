@@ -364,3 +364,15 @@ sheets:
       - id: "SkeletalMuscleMass"
         name: "Skeletal Muscle Mass (kg)"
         type: "numeric"
+      - id: IdealBodyWeight
+        name: Ideal Body Weight (kg)
+        type: numeric
+      - id: WaterWeight
+        name: Water Weight (kg)
+        type: numeric
+      - id: FatMass
+        name: Fat Mass (kg)
+        type: numeric
+      - id: BodyScore
+        name: Body Score
+        type: numeric
