@@ -371,6 +371,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
                       AthleteAnalyticsDashboard(
                         biometrics: _syncService.appData["biometrics"],
                         kidId: _selectedKidId!,
+                        kids: _syncService.appData["kids"],
                       ),
                     ],
                   ),

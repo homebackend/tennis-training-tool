@@ -103,7 +103,7 @@ sheets:
         type: "numeric"
         optional: true
       - id: "Server20"
-        name: "Server / 20"
+        name: "Serve / 20"
         type: "numeric"
         optional: true
       - id: "ServeKmh"
