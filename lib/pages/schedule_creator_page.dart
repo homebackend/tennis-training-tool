@@ -11,6 +11,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../mixins/yaml_diff_deviation.dart';
 import '../models/schedule.dart';
 import '../services/schedule_editor_service.dart';
 import '../services/schedule_parser_service.dart';
@@ -28,10 +29,11 @@ class ScheduleCreatorPage extends StatefulWidget {
   State<ScheduleCreatorPage> createState() => _ScheduleCreatorPageState();
 }
 
-class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
+class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
+    with YamlDiffDeviation {
   bool _dirty = false;
   final _parser = ScheduleParser();
-  final _service = ScheduleEditorService();
+  late ScheduleEditorService _service;
   List<Map<String, dynamic>> _audioMap = [];
 
   DateTime start = DateTime.now();
@@ -43,7 +45,8 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
   void initState() {
     super.initState();
 
-    _weeksController = TextEditingController(text: weeks.toString());
+    _service = ScheduleEditorService(widget.initialYaml);
+
     rootBundle.loadString('assets/mapping.json').then((s) {
       final list = json.decode(s) as List;
       setState(() {
@@ -67,6 +70,7 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
       weeks = w;
       items.addAll(its);
     }
+    _weeksController = TextEditingController(text: weeks.toString());
   }
 
   @override
@@ -83,7 +87,7 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
         if (didPop) return;
         final shouldSave = await _confirmExit();
         if (shouldSave == true) {
-          _save();
+          await _save();
         } else if (shouldSave == false) {
           if (context.mounted) {
             Navigator.of(context).pop();
@@ -97,7 +101,7 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
           ),
           actions: [
             FilledButton.icon(
-              onPressed: _save,
+              onPressed: _dirty ? _save : null,
               icon: const Icon(Icons.check),
               label: const Text('Save'),
             ),
@@ -168,6 +172,7 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
             ),
             ...items.asMap().entries.map(
               (e) => _ItemCard(
+                key: ValueKey(e.value),
                 item: e.value,
                 maxWeeks: weeks,
                 audioMap: _audioMap,
@@ -178,6 +183,11 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
                 onDelete: () {
                   _markDirty();
                   setState(() => items.removeAt(e.key));
+                  for (int i = e.key; i < items.length; i++) {
+                    final item = items[i];
+                    item.index--;
+                    item.changed = true;
+                  }
                 },
               ),
             ),
@@ -241,11 +251,23 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage> {
 
   void _markDirty() => setState(() => _dirty = true);
 
-  void _save() {
-    final yaml = _service.toYaml(start, weeks, items);
-    widget.onSave(yaml);
-    setState(() => _dirty = false);
-    Navigator.pop(context);
+  Future<void> _save() async {
+    final yaml = await _service.toYaml(start, weeks, items);
+    if (mounted) {
+      final shouldSave = await showYamlDiffDialog(
+        context,
+        existingYaml: widget.initialYaml ?? '',
+        newYaml: yaml,
+      );
+
+      if (shouldSave) {
+        widget.onSave(yaml);
+        setState(() => _dirty = false);
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      }
+    }
   }
 }
 
@@ -256,6 +278,7 @@ class _ItemCard extends StatefulWidget {
   final int maxWeeks;
   final List<Map<String, dynamic>> audioMap;
   const _ItemCard({
+    super.key,
     required this.item,
     required this.onChanged,
     required this.onDelete,
@@ -279,6 +302,14 @@ class _ItemCardState extends State<_ItemCard> {
   void _update(ScheduleItem u) {
     setState(() => _item = u);
     widget.onChanged(u);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ItemCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item != widget.item) {
+      _item = widget.item;
+    }
   }
 
   @override
@@ -321,7 +352,9 @@ class _ItemCardState extends State<_ItemCard> {
                       audioMap: widget.audioMap,
                     ),
                   );
-                  if (r != null) _update(r);
+                  if (r != null) {
+                    _update(r..changed = true);
+                  }
                 },
               ),
               TextButton.icon(
@@ -335,7 +368,15 @@ class _ItemCardState extends State<_ItemCard> {
                       audioMap: widget.audioMap,
                     ),
                   );
-                  if (r != null) _update(_item..children.add(r));
+                  if (r != null) {
+                    r.index = _item.children.length - 1;
+                    addSlotKeysIfMissing(r, r.slots);
+                    _update(
+                      _item
+                        ..changed = true
+                        ..children.add(r),
+                    );
+                  }
                 },
               ),
               TextButton.icon(
@@ -358,9 +399,13 @@ class _ItemCardState extends State<_ItemCard> {
                     audio: _item.audio,
                     links: _item.links,
                     slots: _item.slots,
+                    hasSlots: _item.hasSlots,
                     enabled: !_item.enabled,
+                    changed: true,
                     children: _item.children,
+                    index: _item.index,
                   );
+                  widget.onChanged(updated);
                   _update(updated);
                 },
               ),
@@ -376,6 +421,7 @@ class _ItemCardState extends State<_ItemCard> {
             (e) => Padding(
               padding: const EdgeInsets.only(left: 24, right: 8, bottom: 8),
               child: _ItemCard(
+                key: ValueKey(e.value),
                 item: e.value,
                 maxWeeks: widget.maxWeeks,
                 audioMap: widget.audioMap,
@@ -385,14 +431,17 @@ class _ItemCardState extends State<_ItemCard> {
                   _item.children
                     ..clear()
                     ..addAll(kids);
+                  _item.changed = true;
                   _update(_item);
                 },
                 onDelete: () {
-                  final kids = [..._item.children]..removeAt(e.key);
-                  _item.children
-                    ..clear()
-                    ..addAll(kids);
-                  _update(_item);
+                  _item.children.removeAt(e.key);
+                  for (int i = e.key; i < _item.children.length; i++) {
+                    final item = _item.children[i];
+                    item.index--;
+                    item.changed = true;
+                  }
+                  _update(_item..changed = true);
                 },
               ),
             ),
@@ -654,8 +703,11 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
   void _save() {
     final audio = audioValue == 'custom' ? customAudio.text.trim() : audioValue;
     final item = ScheduleItem(
-      title: title.text.trim().isEmpty ? 'Untitled' : title.text.trim(),
+      title: title.text.trim().isEmpty
+          ? ScheduleParser.dummyTitle
+          : title.text.trim(),
       enabled: enabled,
+      changed: true,
       category: category,
       description: desc.text.isEmpty ? null : desc.text,
       durationMin: int.tryParse(duration.text),
@@ -664,8 +716,13 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
       audio: (audio?.isEmpty ?? true) ? null : audio,
       links: links,
       slots: slots,
+      hasSlots: widget.item == null ? true : widget.item!.hasSlots,
       children: widget.item?.children ?? [],
+      index: widget.item == null ? -1 : widget.item!.index,
     );
+    if (widget.item != null) {
+      addSlotKeysIfMissing(widget.item!, slots);
+    }
     Navigator.pop(context, item);
   }
 }
@@ -776,10 +833,23 @@ class _SlotPickerState extends State<_SlotPicker> {
       ScheduleSlot(
         weeks.toList()..sort(),
         days.toList()..sort(),
+        false,
         f(start),
         f(end),
-        null,
+        -1,
+        '',
+        '',
+        changed: true,
       ),
     );
+  }
+}
+
+void addSlotKeysIfMissing(ScheduleItem item, List<ScheduleSlot> slots) {
+  for (int i = 0; i < slots.length; i++) {
+    if (slots[i].changed) {
+      final s = slots[i];
+      s.index = i;
+    }
   }
 }

@@ -47,7 +47,7 @@ void _printWeekly(List<ScheduleItem> items, int cycleWeeks) {
     bool last,
   ) {
     // skip placeholder nodes
-    if (node.title.trim().isEmpty || node.title == 'Untitled') {
+    if (node.title.trim().isEmpty || node.title == ScheduleParser.dummyTitle) {
       final kids = node.children.where((c) => hasSlot(c, w, d)).toList();
       for (var i = 0; i < kids.length; i++) {
         printNode(

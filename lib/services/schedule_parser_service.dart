@@ -6,11 +6,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+import 'package:collection/collection.dart';
 import 'package:yaml/yaml.dart';
 
 import '../models/schedule.dart';
 
 class ScheduleParser {
+  static final dummyTitle = '__DUMMY__';
+
   late DateTime startDate;
   late int cycleWeeks;
 
@@ -52,7 +55,7 @@ class ScheduleParser {
       startDate,
       cycleWeeks,
       itemsNode.nodes
-          .map((n) => _parseNode(n, null, includeDisabled))
+          .mapIndexed((i, n) => _parseNode(n, null, includeDisabled, i))
           .whereType<ScheduleItem>()
           .toList(),
     );
@@ -62,11 +65,15 @@ class ScheduleParser {
     YamlNode node,
     ScheduleItem? parent,
     bool includeDisabled,
+    int index,
   ) {
     if (node is YamlScalar) {
       return ScheduleItem(
         title: node.value.toString(),
         slots: parent?.slots ?? [],
+        isScalar: true,
+        index: index,
+        hasSlots: false,
       );
     }
     if (node is! YamlMap) {
@@ -78,7 +85,7 @@ class ScheduleParser {
       return null;
     }
 
-    final title = node['title']?.toString() ?? 'Untitled';
+    final title = node['title']?.toString() ?? dummyTitle;
     final category = node['category']?.toString();
     final description = node['description']?.toString();
     final duration = node['time'] is int ? node['time'] as int : null;
@@ -103,7 +110,8 @@ class ScheduleParser {
           ? schedNode.nodes
           : (schedNode is YamlMap ? [schedNode] : []);
 
-      for (final sNode in entries) {
+      for (int i = 0; i < entries.length; i++) {
+        final sNode = entries[i];
         final s = sNode as YamlMap;
         if (s.containsKey('weeks')) {
           throw YamlValidationError('Use "week" not "weeks"', _line(s));
@@ -173,9 +181,13 @@ class ScheduleParser {
               ScheduleSlot(
                 iw,
                 id,
+                hasTime,
                 useStart,
                 useEnd,
-                s['description']?.toString(),
+                i,
+                weekRaw.toString(),
+                daysRaw.toString(),
+                description: s['description']?.toString(),
               ),
             );
           }
@@ -184,9 +196,13 @@ class ScheduleParser {
             ScheduleSlot(
               weeks,
               days,
+              hasTime,
               ts ?? '00:00',
               te ?? '23:59',
-              s['description']?.toString(),
+              i,
+              weekRaw.toString(),
+              daysRaw.toString(),
+              description: s['description']?.toString(),
             ),
           );
         }
@@ -198,11 +214,19 @@ class ScheduleParser {
     final children = <ScheduleItem>[];
     final itemsNode = node.nodes['items'];
     if (itemsNode is YamlList) {
-      for (final c in itemsNode.nodes) {
+      for (int i = 0; i < itemsNode.nodes.length; i++) {
+        final c = itemsNode.nodes[i];
         final childItem = _parseNode(
           c,
-          ScheduleItem(title: title, slots: slots, children: []),
+          ScheduleItem(
+            title: title,
+            slots: slots,
+            index: -1,
+            hasSlots: schedNode != null,
+            children: [],
+          ),
           includeDisabled,
+          i,
         );
 
         if (childItem != null) {
@@ -216,13 +240,16 @@ class ScheduleParser {
       category: category,
       description: description,
       enabled: enabled,
+      slotsAsArray: schedNode is YamlList,
       slots: slots,
+      hasSlots: schedNode != null,
       children: children,
       durationMin: duration,
       reps: reps,
       links: links,
       audio: audio,
       setsAndReps: setsAndReps,
+      index: index,
     );
   }
 

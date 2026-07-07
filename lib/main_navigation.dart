@@ -104,7 +104,8 @@ class _MainNavigationState extends State<MainNavigation> {
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.schedule),
+            icon: Icon(Icons.calendar_view_day),
+            activeIcon: Icon(Icons.calendar_view_day_outlined),
             label: 'Schedule',
           ),
           BottomNavigationBarItem(
