@@ -8,27 +8,35 @@
 
 import 'dart:math' as math;
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 class AthleteAnalyticsDashboard extends StatelessWidget {
   final List<dynamic> biometrics;
   final String kidId;
+  final List<dynamic> kids;
 
   const AthleteAnalyticsDashboard({
     super.key,
     required this.biometrics,
     required this.kidId,
+    required this.kids,
   });
 
   List<FlSpot> _getChartSpots(
     String sheetId,
     String columnId,
+    String? kidId,
     List<String> xAxisDates,
   ) {
     xAxisDates.clear();
     final records = biometrics
-        .where((b) => b["kid_id"] == kidId && b["sheet_id"] == sheetId)
+        .where(
+          (b) =>
+              (kidId == null || b["kid_id"] == kidId) &&
+              b["sheet_id"] == sheetId,
+        )
         .toList();
 
     records.sort((a, b) {
@@ -69,219 +77,176 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
     return spots;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final List<String> dailyDates = [];
-    final List<String> weeklyDates = [];
-    final List<String> monthlyDates = [];
-    final List<String> weightDates = [];
+  Color _color({int index = -1}) {
+    if (index == 0) return Colors.orange.shade700;
+    if (index == 1) return Colors.blue.shade400;
+    if (index == 2) return Colors.green.shade600;
+    if (index == 3) return Colors.brown.shade700;
+    if (index == 4) return Colors.limeAccent.shade700;
 
-    final dailySpotsRPE = _getChartSpots("daily", "RPE", dailyDates);
-    final dailySpotsSoreness = _getChartSpots("daily", "Soreness", dailyDates);
-    final dailySpotsMood = _getChartSpots("daily", "Mood", dailyDates);
-    final dailySpotsSleep = _getChartSpots("daily", "SleepTotal", dailyDates);
+    return Colors.red.shade600;
+  }
 
-    final weeklySpotsSprint = _getChartSpots("weekly", "Sprint5m", weeklyDates);
-    final weeklySpotsServe = _getChartSpots("weekly", "ServeKmh", weeklyDates);
-
-    final monthlySpotsDelta = _getChartSpots(
-      "monthly",
-      "IntRotationDelta",
-      monthlyDates,
-    );
-
-    final List<String> bodyFatDates = [];
-    final monthlyFatSpots = _getChartSpots("monthly", "BodyFat", bodyFatDates);
-    final weightFatSpots = _getChartSpots(
-      "weight",
-      "BodyFatRatio",
-      bodyFatDates,
-    );
-
-    final weightSpots = _getChartSpots("weight", "Weight", weightDates);
-
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        _buildChartCard(
-          title: "Daily Wellness, Recovery & Sleep Trends",
-          subtitle: "Tracking physical strain markers and total sleep volumes",
-          chart: LineChart(
-            _baseLineChartData(
-              spots: dailySpotsSleep,
-              bars: [
-                _buildLineStyle(dailySpotsRPE, Colors.orange.shade700),
-                _buildLineStyle(dailySpotsSoreness, Colors.red.shade600),
-                _buildLineStyle(dailySpotsMood, Colors.green.shade600),
-                _buildLineStyle(
-                  dailySpotsSleep,
-                  Colors.teal.shade600,
-                ), // Sleep Line path
-              ],
-              bottom: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 45,
-                  getTitlesWidget: (value, meta) =>
-                      _buildAxisTitleWidget(value, dailyDates),
+  Widget _createChart({
+    required String title,
+    required String subtitle,
+    required int fractionDigits,
+    required List<(String, String, String)> lines,
+    bool useKidId = true,
+  }) {
+    final List<String> dates = [];
+    final rows = useKidId
+        ? lines.map((l) => (l.$1, l.$2, l.$3, kidId)).toList()
+        : lines
+              .expand(
+                (l) => kids.map(
+                  (k) => (l.$1, l.$2, '${l.$3} for ${k['name']}', k['id']),
                 ),
-              ),
-              fractionDigits: 1,
+              )
+              .toList();
+
+    final data = rows.map((row) {
+      final (sheetId, columnId, _, id) = row;
+      return _getChartSpots(sheetId, columnId, id, dates);
+    }).toList();
+
+    return _buildChartCard(
+      title: title,
+      subtitle: subtitle,
+      chart: LineChart(
+        _baseLineChartData(
+          spots: data[0],
+          bars: data
+              .mapIndexed((i, d) => _buildLineStyle(d, _color(index: i)))
+              .toList(),
+          bottom: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 45,
+              getTitlesWidget: (value, meta) =>
+                  _buildAxisTitleWidget(value, dates),
             ),
           ),
-          legend: Wrap(
-            spacing: 16,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              _buildLegendIndicator("RPE (1-10)", Colors.orange.shade700),
-              _buildLegendIndicator("Soreness (1-10)", Colors.red.shade600),
-              _buildLegendIndicator("Mood (1-10)", Colors.green.shade600),
-              _buildLegendIndicator("Total Sleep (Hrs)", Colors.teal.shade600),
-            ],
-          ),
+          fractionDigits: fractionDigits,
         ),
-        const SizedBox(height: 16),
-
-        _buildChartCard(
-          title: "Weekly 5m Sprint Acceleration (s)",
-          subtitle:
-              "Lower values signify improved explosive footwork acceleration",
-          chart: LineChart(
-            _baseLineChartData(
-              spots: weeklySpotsSprint,
-              fractionDigits: 2,
-              bottom: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 45,
-                  getTitlesWidget: (value, meta) =>
-                      _buildAxisTitleWidget(value, weeklyDates),
-                ),
-              ),
-              bars: [
-                _buildLineStyle(weeklySpotsSprint, Colors.deepPurple.shade600),
-              ],
-            ),
-          ),
-          legend: _buildLegendIndicator(
-            "5m Sprint Time (Seconds)",
-            Colors.deepPurple.shade600,
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        _buildChartCard(
-          title: "Weekly Serve Speed Progression (Km/h)",
-          subtitle: "Monitoring serving output velocity across training cycles",
-          chart: LineChart(
-            _baseLineChartData(
-              bars: [_buildLineStyle(weeklySpotsServe, Colors.blue.shade700)],
-              bottom: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 45,
-                  getTitlesWidget: (value, meta) =>
-                      _buildAxisTitleWidget(value, weeklyDates),
-                ),
-              ),
-              fractionDigits: 0,
-              spots: weeklySpotsServe,
-            ),
-          ),
-          legend: _buildLegendIndicator(
-            "Serve Speed (Km/h)",
-            Colors.blue.shade700,
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        _buildChartCard(
-          title: "Athlete Body Weight Progression (kg)",
-          subtitle: "Monitoring stable physiological mass variations",
-          chart: LineChart(
-            _baseLineChartData(
-              spots: weightSpots,
-              bars: [_buildLineStyle(weightSpots, Colors.pink.shade700)],
-              fractionDigits: 1,
-              bottom: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 45,
-                  getTitlesWidget: (value, meta) =>
-                      _buildAxisTitleWidget(value, weightDates),
-                ),
-              ),
-            ),
-          ),
-          legend: _buildLegendIndicator(
-            "Body Weight (kg)",
-            Colors.pink.shade700,
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        _buildChartCard(
-          title: "Athlete Body Fat Ratio Progression (%)",
-          subtitle: "Tracking percentage composition changes across logs",
-          chart: LineChart(
-            _baseLineChartData(
-              spots: weightFatSpots,
-              bars: [
-                if (monthlyFatSpots.isNotEmpty)
-                  _buildLineStyle(monthlyFatSpots, Colors.amber.shade700),
-                if (weightFatSpots.isNotEmpty)
-                  _buildLineStyle(weightFatSpots, Colors.orange.shade700),
-              ],
-              fractionDigits: 2,
-              bottom: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 45,
-                  getTitlesWidget: (value, meta) =>
-                      _buildAxisTitleWidget(value, bodyFatDates),
-                ),
-              ),
-            ),
-          ),
-          legend: Wrap(
-            spacing: 16,
-            children: [
-              _buildLegendIndicator("Monthly Log BF%", Colors.amber.shade700),
-              _buildLegendIndicator("Weight Log BF%", Colors.orange.shade700),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        _buildChartCard(
-          title: "Monthly Shoulder Internal Rotation Delta (Asymmetry °)",
-          subtitle: "Risk thresholds flag imbalances tracking above 10°",
-          chart: LineChart(
-            _baseLineChartData(
-              spots: monthlySpotsDelta,
-              bars: [
-                _buildLineStyle(monthlySpotsDelta, Colors.purple.shade700),
-              ],
-              fractionDigits: 1,
-              bottom: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 45,
-                  getTitlesWidget: (value, meta) =>
-                      _buildAxisTitleWidget(value, monthlyDates),
-                ),
-              ),
-            ),
-          ),
-          legend: _buildLegendIndicator(
-            "Shoulder Rotation Asymmetry Delta (°)",
-            Colors.purple.shade700,
-          ),
-        ),
-      ],
+      ),
+      legend: Wrap(
+        spacing: 16,
+        runSpacing: 8,
+        alignment: WrapAlignment.start,
+        children: rows.mapIndexed((i, row) {
+          final (_, _, legendText, _) = row;
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: ScrollPhysics(),
+            child: _buildLegendIndicator(legendText, _color(index: i)),
+          );
+        }).toList(),
+      ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(16.0),
+    children: [
+      const Expanded(child: Text('Daily Analytics')),
+      const SizedBox(height: 16),
+      _createChart(
+        title: 'Daily Wellness, Recovery & Sleep Trends',
+        subtitle: 'Tracking physical strain markers and total sleep volumes',
+        fractionDigits: 1,
+        lines: [
+          ('daily', 'RPE', 'RPE (1-10)'),
+          ('daily', 'Soreness', 'Soreness (1-10)'),
+          ('daily', 'Mood', 'Mood (1-10)'),
+          ('daily', 'SleepTotal', 'Total Sleep (Hrs)'),
+        ],
+      ),
+      const Expanded(child: Text('Weekly Analytics')),
+      const SizedBox(height: 16),
+      _createChart(
+        title: 'Weekly 5m Sprint Acceleration (s)',
+        subtitle:
+            'Lower values signify improved explosive footwork acceleration',
+        fractionDigits: 2,
+        lines: [('weekly', 'Sprint5m', '5m Sprint Time (Seconds)')],
+        useKidId: false,
+      ),
+      const SizedBox(height: 16),
+      _createChart(
+        title: 'Weekly 400m Time (s)',
+        subtitle: 'A test of endurance to a test of speed reserve.',
+        fractionDigits: 2,
+        lines: [('weekly', 'Time400m', '400m Time (s)')],
+        useKidId: false,
+      ),
+      const SizedBox(height: 16),
+      _createChart(
+        title: 'Weekly Serve Speed Progression',
+        subtitle: 'Monitoring serving output velocity and accuracy',
+        fractionDigits: 0,
+        lines: [
+          ('weekly', 'ServeKmh', 'Serve Speed (wall hits)'),
+          ('weekly', 'Server20', 'Serve / 20'),
+        ],
+        useKidId: false,
+      ),
+      const Expanded(child: Text('Monthly Analytics')),
+      const SizedBox(height: 16),
+      _createChart(
+        title: 'Monthly Shoulder Internal Rotation Delta (Asymmetry °)',
+        subtitle: 'Risk thresholds flag imbalances tracking above 10°',
+        fractionDigits: 1,
+        lines: [
+          (
+            'monthly',
+            'IntRotationDelta',
+            'Shoulder Rotation Asymmetry Delta (°)',
+          ),
+        ],
+        useKidId: false,
+      ),
+      const SizedBox(height: 16),
+      _createChart(
+        title: 'Weekly Wall hits and Spider Drill Timings',
+        subtitle: 'Monitoring reflexes and agility',
+        fractionDigits: 0,
+        lines: [
+          ('weekly', 'WallHits30s', 'Wall Hits / 30s'),
+          ('weekly', 'SpiderDrill', 'Spider Drill (s)'),
+        ],
+        useKidId: false,
+      ),
+      const Expanded(child: Text('Weight Related Analytics')),
+      const SizedBox(height: 16),
+      _createChart(
+        title: 'Body Weight Progression (kg)',
+        subtitle: 'Monitoring stable physiological mass variations',
+        fractionDigits: 2,
+        lines: [('weight', 'Weight', 'Body Weight (kg)')],
+        useKidId: false,
+      ),
+      const SizedBox(height: 16),
+      _createChart(
+        title: 'Body Fat Ratio Progression (%)',
+        subtitle: 'Tracking percentage composition changes across logs',
+        fractionDigits: 1,
+        lines: [('weight', 'BodyFatRatio', 'Body Fat Ratio %')],
+        useKidId: false,
+      ),
+      _createChart(
+        title: 'Visceral and Subcutaneous Fat (%)',
+        subtitle: 'Tracking percentage composition changes across logs',
+        fractionDigits: 1,
+        lines: [
+          ('weight', 'VisceralFat', 'Visceral Fat %'),
+          ('weight', 'SubcutaneousFat', 'Subcutaneous Fat %'),
+        ],
+        useKidId: false,
+      ),
+    ],
+  );
 
   LineChartData _baseLineChartData({
     required List<FlSpot> spots,
