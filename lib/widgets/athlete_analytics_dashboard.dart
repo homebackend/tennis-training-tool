@@ -150,7 +150,7 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(16.0),
     children: [
-      const Expanded(child: Text('Daily Analytics')),
+      Text('Daily Analytics'),
       const SizedBox(height: 16),
       _createChart(
         title: 'Daily Wellness, Recovery & Sleep Trends',
@@ -163,7 +163,7 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
           ('daily', 'SleepTotal', 'Total Sleep (Hrs)'),
         ],
       ),
-      const Expanded(child: Text('Weekly Analytics')),
+      Text('Weekly Analytics'),
       const SizedBox(height: 16),
       _createChart(
         title: 'Weekly 5m Sprint Acceleration (s)',
@@ -192,7 +192,7 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
         ],
         useKidId: false,
       ),
-      const Expanded(child: Text('Monthly Analytics')),
+      Text('Monthly Analytics'),
       const SizedBox(height: 16),
       _createChart(
         title: 'Monthly Shoulder Internal Rotation Delta (Asymmetry °)',
@@ -218,7 +218,7 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
         ],
         useKidId: false,
       ),
-      const Expanded(child: Text('Weight Related Analytics')),
+      Text('Weight Related Analytics'),
       const SizedBox(height: 16),
       _createChart(
         title: 'Body Weight Progression (kg)',
