@@ -28,7 +28,12 @@ class PdfViewerPage extends StatefulWidget {
 }
 
 class _PdfViewerPageState extends State<PdfViewerPage>
-    with PageCommon, EncryptDecryptService, PdfLoaderService, GitHubSyncer {
+    with
+        PageCommon,
+        EncryptDecryptService,
+        PdfLoaderService,
+        GitHubSyncer,
+        WidgetsBindingObserver {
   static final String keyPdfIsTocVisible = 'pdf_is_toc_visible';
 
   late final PdfViewerController _pdfController;
