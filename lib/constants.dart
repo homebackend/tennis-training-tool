@@ -6,6 +6,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+import 'package:flutter_common/flutter_common.dart';
+
 const String appName = 'Tennis Training Tool';
 const String appIcon = 'assets/app_logo.png';
 const String githubOrganization = String.fromEnvironment(
@@ -17,4 +19,6 @@ const String githubRepo = String.fromEnvironment(
   defaultValue: 'tennis-training-tool',
 );
 final String baseAssetName = 'tennis-training-tool';
-const String upgradeFileName = 'app-release.apk';
+final String upgradeFileName = isAndroidPlatform()
+    ? 'app-release.apk'
+    : 'tennis-training-tool-linux-x64.pkg.tar.zst ';

@@ -56,6 +56,7 @@ Future<void> main() async {
       appName,
       appIcon,
       () => MainNavigation(),
+      upgradeFileName: upgradeFileName,
     ),
   );
 }
