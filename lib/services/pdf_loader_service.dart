@@ -39,6 +39,7 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   void setState(VoidCallback fn);
 
   Future<void> initPdfLoader() async {
+    lastSavedPage = sharedPreferences.getInt(keyLastPdfPage) ?? 1;
     _loadLocalPreferences();
 
     _pdfResyncSubscription = TrackerSyncService.globalResyncTrigger.stream
@@ -101,7 +102,6 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
     final dir = await getApplicationCacheDirectory();
     setState(() {
       localDecryptedPath = '${dir.path}/$localFileName';
-      lastSavedPage = 1;
     });
   }
 
