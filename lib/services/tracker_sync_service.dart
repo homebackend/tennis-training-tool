@@ -72,7 +72,8 @@ class ConcurrentModificationException implements Exception {
   ConcurrentModificationException(this.conflicts, this.serverFileSha);
 }
 
-class TrackerSyncService with EncryptDecryptService, GitHubSyncer {
+class TrackerSyncService
+    with EncryptDecryptService, GitHubSyncer, WidgetsBindingObserver {
   static final StreamController<void> globalResyncTrigger =
       StreamController<void>.broadcast();
 

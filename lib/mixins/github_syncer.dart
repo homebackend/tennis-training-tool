@@ -26,6 +26,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -35,7 +36,8 @@ import '../services/encrypt_decryt_service.dart';
 import '../services/preferences_backup_service.dart';
 import '../tool.dart';
 
-mixin GitHubSyncer<DataType> implements EncryptDecryptService {
+mixin GitHubSyncer<DataType>
+    implements EncryptDecryptService, WidgetsBindingObserver {
   static final keyGitRepo = PreferencesBackupService.keyGitRepo;
   static final keyGitToken = PreferencesBackupService.keyGitToken;
   static final keyEncPwd = PreferencesBackupService.keyEncPwd;
@@ -43,6 +45,7 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
   bool isSyncBlocked = false;
   bool isSyncInProgress = false;
   bool isModified = false;
+  DateTime _lastFetch = DateTime(0);
 
   SharedPreferences get sharedPreferences;
   FlutterSecureStorage get secureStorage;
@@ -79,15 +82,33 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
     appEtag = sharedPreferences.getString(keyDocumentLastModified);
     isModified = sharedPreferences.getBool(keyHasSyncDataModified) ?? false;
 
+    WidgetsBinding.instance.addObserver(this);
     await _loadSyncData();
-
-    _syncTimer = Timer.periodic(syncDuration, (_) {
-      _syncFromNetwork(true);
-    });
+    _startTimer();
   }
 
   void disposeSyncer() {
     _syncTimer?.cancel();
+  }
+
+  void _startTimer() {
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(
+      Duration(minutes: 1),
+      (_) => _syncFromNetwork(true),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncFromNetwork(true);
+      _startTimer();
+    }
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _syncTimer?.cancel();
+    }
   }
 
   Future<void> syncData() async {
@@ -123,7 +144,8 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
   }
 
   Future<void> _syncFromNetwork(bool background) async {
-    if (isSyncInProgress) {
+    if (isSyncInProgress ||
+        DateTime.now().difference(_lastFetch) < syncDuration) {
       return;
     }
 
@@ -135,6 +157,7 @@ mixin GitHubSyncer<DataType> implements EncryptDecryptService {
         await _loadFromNetwork(background);
       }
     } finally {
+      _lastFetch = DateTime.now();
       isSyncInProgress = false;
     }
   }
