@@ -10,7 +10,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_common/tool.dart';
 
+import '../mixins/schedule_common.dart';
 import '../mixins/yaml_diff_deviation.dart';
 import '../models/schedule.dart';
 import '../services/schedule_editor_service.dart';
@@ -469,7 +471,8 @@ class _ItemEditorDialog extends StatefulWidget {
   State<_ItemEditorDialog> createState() => _ItemEditorDialogState();
 }
 
-class _ItemEditorDialogState extends State<_ItemEditorDialog> {
+class _ItemEditorDialogState extends State<_ItemEditorDialog>
+    with SlotCommon, ScheduleCommon {
   late final title = TextEditingController(text: widget.item?.title ?? '');
   late String? category = widget.item?.category;
   late final desc = TextEditingController(text: widget.item?.description ?? '');
@@ -623,28 +626,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
               ),
-              ...slots.asMap().entries.map(
-                (e) => ListTile(
-                  dense: true,
-                  title: Text(
-                    'W:${_c(e.value.weeks)} • ${_days(e.value.days)} • ${e.value.timeStart}-${e.value.timeEnd}',
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, size: 18),
-                        onPressed: () => _editSlot(e.key),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: () => setState(() => slots.removeAt(e.key)),
-                      ),
-                    ],
-                  ),
-                  onTap: () => _editSlot(e.key),
-                ),
-              ),
+              ...createSlotRows(slots),
               TextButton.icon(
                 onPressed: () => _editSlot(null),
                 icon: const Icon(Icons.add),
@@ -682,16 +664,16 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     ),
   );
 
-  String _c(List<int> v) => v.join(',');
-  String _days(List<int> d) => d
-      .map((e) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][e - 1])
-      .join(',');
-
+  @override
   void _editSlot(int? idx) async {
     final existing = idx != null ? slots[idx] : null;
     final s = await showDialog<ScheduleSlot>(
       context: context,
-      builder: (_) => _SlotPicker(maxWeeks: widget.maxWeeks, slot: existing),
+      builder: (_) => _SlotPicker(
+        maxWeeks: widget.maxWeeks,
+        slot: existing,
+        parent: widget.item,
+      ),
     );
     if (s != null) {
       setState(() {
@@ -702,6 +684,21 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
         }
       });
     }
+  }
+
+  @override
+  void _deleteSlot(int idx) {
+    if (widget.item != null) {
+      final error = validateChildrenTimeSlotsPostDeletion(
+        parent: widget.item!,
+        deletedIndex: idx,
+      );
+      if (error != null) {
+        showSnackBar(context, error);
+        return;
+      }
+    }
+    setState(() => slots.removeAt(idx));
   }
 
   void _save() {
@@ -734,16 +731,19 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
 class _SlotPicker extends StatefulWidget {
   final int maxWeeks;
   final ScheduleSlot? slot;
-  const _SlotPicker({required this.maxWeeks, this.slot});
+  final ScheduleItem? parent;
+  const _SlotPicker({required this.maxWeeks, this.slot, required this.parent});
   @override
   State<_SlotPicker> createState() => _SlotPickerState();
 }
 
-class _SlotPickerState extends State<_SlotPicker> {
+class _SlotPickerState extends State<_SlotPicker>
+    with SlotCommon, ScheduleCommon {
   late Set<int> weeks;
   late Set<int> days;
   late TimeOfDay start;
   late TimeOfDay end;
+  String? _error;
 
   @override
   void initState() {
@@ -766,6 +766,24 @@ class _SlotPickerState extends State<_SlotPicker> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (widget.parent != null) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Parent Time Slots',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ),
+            ...createSlotRows(widget.parent!.slots, editable: false),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: BouncingScrollPhysics(),
+              child: Text(
+                'Please ensure that the time slot below is contained within any of the parent time slots above.',
+              ),
+            ),
+          ],
+          Divider(),
           const Text('Weeks'),
           Wrap(
             children: List.generate(widget.maxWeeks, (i) {
@@ -781,19 +799,15 @@ class _SlotPickerState extends State<_SlotPicker> {
           const SizedBox(height: 12),
           const Text('Days'),
           Wrap(
-            children: const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-                .asMap()
-                .entries
-                .map((e) {
-                  final d = e.key + 1;
-                  return FilterChip(
-                    label: Text(e.value),
-                    selected: days.contains(d),
-                    onSelected: (v) =>
-                        setState(() => v ? days.add(d) : days.remove(d)),
-                  );
-                })
-                .toList(),
+            children: ScheduleCommon.weekNames.entries.map((e) {
+              final d = e.key;
+              return FilterChip(
+                label: Text(e.value),
+                selected: days.contains(d),
+                onSelected: (v) =>
+                    setState(() => v ? days.add(d) : days.remove(d)),
+              );
+            }).toList(),
           ),
           ListTile(
             title: Text('Start: ${start.format(context)}'),
@@ -817,6 +831,18 @@ class _SlotPickerState extends State<_SlotPicker> {
               if (t != null) setState(() => end = t);
             },
           ),
+          if (_error != null)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: BouncingScrollPhysics(),
+              child: Text(
+                _error!,
+                style: TextStyle(
+                  color: Colors.red.shade700,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
         ],
       ),
     ),
@@ -832,21 +858,107 @@ class _SlotPickerState extends State<_SlotPicker> {
   void _done() {
     String f(TimeOfDay t) =>
         '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-    Navigator.pop(
-      context,
-      ScheduleSlot(
-        weeks.toList()..sort(),
-        days.toList()..sort(),
-        false,
-        f(start),
-        f(end),
-        -1,
-        '',
-        '',
-        changed: true,
-      ),
+    final ts = f(start);
+    final te = f(end);
+    bool hasTime = false;
+    if (widget.slot == null) {
+      hasTime = ts.isNotEmpty && te.isNotEmpty;
+    } else {
+      if (ts == widget.slot!.timeStart && te == widget.slot!.timeEnd) {
+        hasTime = widget.slot!.hasTime;
+      } else {
+        true;
+      }
+    }
+    final newSlot = ScheduleSlot(
+      weeks.toList()..sort(),
+      days.toList()..sort(),
+      hasTime,
+      ts,
+      te,
+      -1,
+      '',
+      '',
+      changed: true,
     );
+
+    if (widget.parent != null) {
+      final err = validateTimeSlotsAgainstParent(
+        weeks: weeks.toList(),
+        days: days.toList(),
+        hasTime: hasTime,
+        ts: ts,
+        te: te,
+        parent: widget.parent!,
+      );
+      if (err != null) {
+        setState(() => _error = 'Validation Error: $err');
+        showSnackBar(context, 'Validation Error: $err');
+        return;
+      }
+
+      List<ScheduleSlot> parentSlots = [];
+      final err2 = validateChildrenTimeSlotsAgainstParentSlots(
+        parent: widget.parent!,
+        parentSlots: parentSlots
+          ..addAll(widget.parent!.slots) // add all parent slots
+          ..add(newSlot) // add new slot
+          ..remove(widget.slot), //remove its prior version
+      );
+      if (err2 != null) {
+        setState(() => _error = 'Validation Error: $err2.');
+        showSnackBar(context, 'Validation Error: $err2');
+        return;
+      }
+    }
+
+    Navigator.pop(context, newSlot);
   }
+}
+
+mixin SlotCommon implements ScheduleCommon {
+  void setState(VoidCallback fn);
+  void _editSlot(int? idx) async {}
+  void _deleteSlot(int idx) async {}
+
+  List<Widget> createSlotRows(
+    List<ScheduleSlot> slots, {
+    bool editable = true,
+  }) => slots
+      .where((s) => !s.inherited)
+      .toList()
+      .asMap()
+      .entries
+      .map(
+        (e) => ListTile(
+          dense: true,
+          title: Text(
+            'W:${_c(e.value.weeks)} • ${_days(e.value.days)} • ${e.value.timeStart}-${e.value.timeEnd}',
+          ),
+          trailing: editable
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, size: 18),
+                      onPressed: () => _editSlot(e.key),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () => _deleteSlot(e.key),
+                    ),
+                  ],
+                )
+              : null,
+          onTap: editable ? () => _editSlot(e.key) : null,
+        ),
+      )
+      .toList();
+
+  String _days(List<int> d) =>
+      d.map((e) => ScheduleCommon.weekNames[e]).join(',');
+
+  String _c(List<int> v) => v.join(',');
 }
 
 void addSlotKeysIfMissing(ScheduleItem item, List<ScheduleSlot> slots) {

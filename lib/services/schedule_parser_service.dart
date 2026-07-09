@@ -9,9 +9,10 @@
 import 'package:collection/collection.dart';
 import 'package:yaml/yaml.dart';
 
+import '../mixins/schedule_common.dart';
 import '../models/schedule.dart';
 
-class ScheduleParser {
+class ScheduleParser with ScheduleCommon {
   static final dummyTitle = '__DUMMY__';
 
   late DateTime startDate;
@@ -136,47 +137,17 @@ class ScheduleParser {
         final te = s['timeEnd']?.toString();
 
         if (parent != null && parent.slots.isNotEmpty) {
-          final childLine = _line(node.nodes['title']) ?? _line(node);
-          const names = {
-            1: 'Mon',
-            2: 'Tue',
-            3: 'Wed',
-            4: 'Thu',
-            5: 'Fri',
-            6: 'Sat',
-            7: 'Sun',
-          };
+          final splits = getEncapsulatingTimeSlots(
+            weeks: weeks,
+            days: days,
+            hasTime: hasTime,
+            ts: ts,
+            te: te,
+            parent: parent,
+          );
 
-          for (final w in weeks) {
-            for (final d in days) {
-              final ok = parent.slots.any(
-                (ps) => ps.weeks.contains(w) && ps.days.contains(d),
-              );
-              if (!ok) {
-                throw YamlValidationError(
-                  'Schedule mismatch at "$title" (line $childLine): ${names[d]} week $w not offered by parent "${parent.title}"',
-                  childLine,
-                );
-              }
-            }
-          }
-
-          for (final ps in parent.slots) {
-            final iw = weeks.where(ps.weeks.contains).toList();
-            final id = days.where(ps.days.contains).toList();
-            if (iw.isEmpty || id.isEmpty) continue;
-
-            final useStart = hasTime ? ts! : ps.timeStart;
-            final useEnd = hasTime ? te! : ps.timeEnd;
-
-            if (hasTime &&
-                (_toMin(useStart) < _toMin(ps.timeStart) ||
-                    _toMin(useEnd) > _toMin(ps.timeEnd))) {
-              throw YamlValidationError(
-                'Time mismatch at "$title": $useStart-$useEnd outside parent ${ps.timeStart}-${ps.timeEnd}',
-                childLine,
-              );
-            }
+          for (int i = 0; i < splits.length; i++) {
+            final (iw, id, useStart, useEnd) = splits[i];
             slots.add(
               ScheduleSlot(
                 iw,
@@ -208,7 +179,7 @@ class ScheduleParser {
         }
       }
     } else if (parent != null) {
-      slots.addAll(parent.slots);
+      slots.addAll(parent.slots.map((s) => s.copyWith(inherited: true)));
     }
 
     final children = <ScheduleItem>[];
@@ -271,11 +242,6 @@ class ScheduleParser {
     } catch (_) {
       throw YamlValidationError('Invalid range "$s"', line);
     }
-  }
-
-  int _toMin(String t) {
-    final p = t.split(':');
-    return int.parse(p[0]) * 60 + int.parse(p[1]);
   }
 
   int? _line(dynamic node) =>

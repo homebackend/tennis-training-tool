@@ -49,7 +49,7 @@ class ScheduleItem {
     return toMap();
   }
 
-  List<ScheduleSlot> actualSlots() => hasSlots ? slots : [];
+  List<ScheduleSlot> actualSlots() => slots.where((s) => !s.inherited).toList();
 
   Map<String, dynamic> toMap() {
     final as = actualSlots();
@@ -85,6 +85,7 @@ class ScheduleSlot {
   final String? description;
   int index;
   bool changed;
+  bool inherited;
   final String originalWeeks;
   final String originalDays;
   ScheduleSlot(
@@ -99,6 +100,7 @@ class ScheduleSlot {
     this.description,
     this.enabled = true,
     this.changed = false,
+    this.inherited = false,
   });
 
   dynamic weekYamlValue() {
@@ -128,6 +130,28 @@ class ScheduleSlot {
       if (description != null) 'description': description,
       if (!enabled) 'enabled': false,
     };
+  }
+
+  ScheduleSlot copyWith({
+    int? index,
+    bool? enabled,
+    bool? changed,
+    bool? inherited,
+  }) {
+    return ScheduleSlot(
+      weeks,
+      days,
+      hasTime,
+      timeStart,
+      timeEnd,
+      index ?? this.index,
+      originalWeeks,
+      originalDays,
+      description: description,
+      enabled: enabled ?? this.enabled,
+      changed: changed ?? this.changed,
+      inherited: inherited ?? this.inherited,
+    );
   }
 }
 
