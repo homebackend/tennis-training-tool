@@ -553,7 +553,6 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog>
                 }),
               ),
               if (!isPlaceHolderItem) _field(title, 'Title *'),
-              //),
               SwitchListTile(
                 title: const Text('Enabled'),
                 value: enabled,
