@@ -12,7 +12,7 @@ void main(List<String> args) async {
   final parser = ScheduleParser();
 
   try {
-    final (start, weeks, items) = parser.parseDocument(doc);
+    final (_, start, weeks, items) = parser.parseDocument(doc);
     debugPrint('✓ YAML valid\n');
     _printWeekly(items, weeks);
   } on YamlValidationError catch (e) {
@@ -47,7 +47,8 @@ void _printWeekly(List<ScheduleItem> items, int cycleWeeks) {
     bool last,
   ) {
     // skip placeholder nodes
-    if (node.title.trim().isEmpty || node.title == ScheduleParser.dummyTitle) {
+    if (node.title.trim().isEmpty ||
+        node.title == ScheduleItem.itemWithoutTitle) {
       final kids = node.children.where((c) => hasSlot(c, w, d)).toList();
       for (var i = 0; i < kids.length; i++) {
         printNode(

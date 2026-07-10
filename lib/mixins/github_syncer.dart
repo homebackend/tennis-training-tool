@@ -144,8 +144,7 @@ mixin GitHubSyncer<DataType>
   }
 
   Future<void> _syncFromNetwork(bool background) async {
-    if (isSyncInProgress ||
-        DateTime.now().difference(_lastFetch) < syncDuration) {
+    if (isSyncInProgress) {
       return;
     }
 
@@ -154,10 +153,12 @@ mixin GitHubSyncer<DataType>
       if (isModifiable && isModified) {
         await _saveToNetwork();
       } else {
-        await _loadFromNetwork(background);
+        if (DateTime.now().difference(_lastFetch) < syncDuration) {
+          await _loadFromNetwork(background);
+          _lastFetch = DateTime.now();
+        }
       }
     } finally {
-      _lastFetch = DateTime.now();
       isSyncInProgress = false;
     }
   }
@@ -248,6 +249,7 @@ mixin GitHubSyncer<DataType>
       rethrow;
     } finally {
       if (!thereWasException) {
+        isModified = false;
         await setSyncDataModified(false);
         notifySyncDone();
       }

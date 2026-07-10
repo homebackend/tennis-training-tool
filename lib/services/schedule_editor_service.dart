@@ -6,8 +6,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-import 'dart:developer';
-
 import 'package:flutter_common/tool.dart';
 import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
@@ -139,7 +137,13 @@ class ScheduleEditorService {
     if (!it.enabled) {
       editor.update([...keys, 'enabled'], it.enabled);
     }
-    updateKeyValue(editor, keys, 'title', it.title, valueCheck: '__DUMMY__');
+    updateKeyValue(
+      editor,
+      keys,
+      'title',
+      it.title,
+      valueCheck: ScheduleItem.itemWithoutTitle,
+    );
     updateKeyValue(editor, keys, 'category', it.category);
     updateKeyValue(editor, keys, 'description', it.description);
     updateKeyValue(editor, keys, 'time', it.durationMin);
@@ -206,6 +210,8 @@ class ScheduleEditorService {
       } else {
         editor.appendToList(keys, itemToYaml(it));
       }
+    } else if (it is ScheduleSlot) {
+      editor.appendToList(keys, itemToYaml(it));
     }
   }
 
@@ -230,9 +236,6 @@ class ScheduleEditorService {
       try {
         final current = editor.parseAt(newKeys).value;
         if ('$current' == '$value') return;
-        log(
-          'WRITE ${newKeys.join('.')} : current=$current (${current.runtimeType}) → value=$value (${value.runtimeType})',
-        );
       } catch (_) {}
       editor.update(newKeys, value);
     } else {
