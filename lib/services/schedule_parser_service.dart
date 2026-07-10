@@ -13,14 +13,12 @@ import '../mixins/schedule_common.dart';
 import '../models/schedule.dart';
 
 class ScheduleParser with ScheduleCommon {
-  static final dummyTitle = '__DUMMY__';
-
   late DateTime startDate;
   late int cycleWeeks;
 
   ScheduleParser();
 
-  (DateTime, int, List<ScheduleItem>) parse(
+  (Map<String, dynamic>, DateTime, int, List<ScheduleItem>) parse(
     String yamlText, {
     bool includeDisabled = true,
   }) {
@@ -28,7 +26,7 @@ class ScheduleParser with ScheduleCommon {
     return parseDocument(doc, includeDisabled: includeDisabled);
   }
 
-  (DateTime, int, List<ScheduleItem>) parseDocument(
+  (Map<String, dynamic>, DateTime, int, List<ScheduleItem>) parseDocument(
     YamlDocument doc, {
     bool includeDisabled = true,
   }) {
@@ -36,6 +34,10 @@ class ScheduleParser with ScheduleCommon {
     if (root is! YamlMap || !root.containsKey('schedule')) {
       throw YamlValidationError('Missing top-level "schedule"', _line(root));
     }
+
+    final metadata = Map<String, dynamic>.from(
+      (root['metadata'] as YamlMap).map((k, v) => MapEntry(k.toString(), v)),
+    );
 
     final sched = root['schedule'] as YamlMap;
     final startNode = sched.nodes['start'];
@@ -53,6 +55,7 @@ class ScheduleParser with ScheduleCommon {
       throw YamlValidationError('"items" must be a list', _line(itemsNode));
     }
     return (
+      metadata,
       startDate,
       cycleWeeks,
       itemsNode.nodes
@@ -86,7 +89,7 @@ class ScheduleParser with ScheduleCommon {
       return null;
     }
 
-    final title = node['title']?.toString() ?? dummyTitle;
+    final title = node['title']?.toString() ?? ScheduleItem.itemWithoutTitle;
     final category = node['category']?.toString();
     final description = node['description']?.toString();
     final duration = node['time'] is int ? node['time'] as int : null;

@@ -43,6 +43,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
   List<ScheduleItem> _items = [];
   DateTime _currentDay = DateTime.now();
   DateTime _currentTime = DateTime.now();
+  DateTime _scheduleLastEdited = DateTime.now();
   String? _currentItem;
   late DateTime _leftLimit;
   late DateTime _rightLimit;
@@ -144,10 +145,14 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
   Future<void> _loadFromYaml(String yaml) async {
     try {
       final parser = ScheduleParser();
-      final (start, cycleWeeks, items) = parser.parse(
+      final (metadata, start, cycleWeeks, items) = parser.parse(
         yaml,
         includeDisabled: false,
       );
+
+      _scheduleLastEdited =
+          DateTime.tryParse(metadata['sync_timestamp']) ?? DateTime.now();
+
       await _calculateTimes(start, cycleWeeks);
       setState(() {
         _start = start;
@@ -267,7 +272,10 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
     }
 
     final itemKey = depth == 0
-        ? _itemKeys.putIfAbsent(item.title, () => GlobalKey())
+        ? _itemKeys.putIfAbsent(
+            item.id,
+            () => GlobalKey(debugLabel: '${item.title}-${item.id}'),
+          )
         : null;
     final icon = switch (item.category) {
       'nutrition' => Icons.restaurant_menu_outlined,
@@ -289,7 +297,8 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
       ...(slot.description ?? '').split('\n'),
     ].where((r) => r.isNotEmpty);
 
-    if (item.title == ScheduleParser.dummyTitle || item.title.trim().isEmpty) {
+    if (item.title == ScheduleItem.itemWithoutTitle ||
+        item.title.trim().isEmpty) {
       return Column(
         children: children.map((c) => _buildNode(c, depth, isLive)).toList(),
       );
@@ -493,8 +502,21 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
     final dayItems = _itemsForDay(_currentDay);
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          '${DateFormat('EEE d MMM').format(_currentDay)} (Week #${_getCurrentWeek(_currentDay)})',
+        title: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              Text(
+                '${DateFormat('EEE d MMM').format(_currentDay)} (Week #${_getCurrentWeek(_currentDay)})',
+              ),
+              SizedBox(width: 15),
+              Text(
+                '[updated ${timeAgo(_scheduleLastEdited)}]',
+                style: TextStyle(fontSize: 14, color: Colors.blue.shade500),
+              ),
+            ],
+          ),
         ),
         actions: [
           IconButton(
@@ -540,7 +562,9 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
             )
           : ListView(
               controller: _scrollController,
-              children: dayItems.map((it) => _buildNode(it, 0, false)).toList(),
+              children: dayItems
+                  .mapIndexed((index, it) => _buildNode(it, 0, false))
+                  .toList(),
             ),
       bottomNavigationBar: BottomAppBar(
         child: Row(
@@ -704,7 +728,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
     _lastLiveId = live.title;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final key = _itemKeys[live.title];
+      final key = _itemKeys[live.id];
       final ctx = key?.currentContext;
       if (ctx != null) {
         Scrollable.ensureVisible(

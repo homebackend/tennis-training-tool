@@ -6,7 +6,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+import 'package:uuid/uuid.dart';
+
 class ScheduleItem {
+  static final itemWithoutTitle = '__DUMMY__';
+
+  final String id = Uuid().v4();
   final String title;
   final String? category;
   final String? description;
@@ -44,6 +49,10 @@ class ScheduleItem {
     required this.index,
   });
 
+  bool get isPlaceholderItem => title == itemWithoutTitle;
+  bool get isEnabled => enabled;
+  bool get hasChanged => changed;
+
   dynamic toYaml() {
     if (isScalar) return title;
     return toMap();
@@ -55,7 +64,7 @@ class ScheduleItem {
     final as = actualSlots();
 
     return {
-      if (title.isNotEmpty && title != '__DUMMY__') 'title': title,
+      if (title.isNotEmpty && title != itemWithoutTitle) 'title': title,
       if (category != null && category!.isNotEmpty) 'category': category,
       if (description != null && description!.isNotEmpty)
         'description': description,

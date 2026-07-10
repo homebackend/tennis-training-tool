@@ -311,7 +311,7 @@ schedule:
             ],
             children: [
               ScheduleItem(
-                title: '__DUMMY__',
+                title: ScheduleItem.itemWithoutTitle,
                 index: 0,
                 slots: [
                   ScheduleSlot(
@@ -337,7 +337,7 @@ schedule:
                 ],
               ),
               ScheduleItem(
-                title: '__DUMMY__',
+                title: ScheduleItem.itemWithoutTitle,
                 index: 1,
                 slots: [
                   ScheduleSlot(

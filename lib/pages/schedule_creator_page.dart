@@ -64,7 +64,7 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
     });
 
     if (widget.initialYaml != null) {
-      final (s, w, its) = _parser.parse(
+      final (_, s, w, its) = _parser.parse(
         widget.initialYaml!,
         includeDisabled: true,
       );
@@ -238,11 +238,13 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
       context: context,
       builder: (_) => _ItemEditorDialog(
         item: original,
+        parent: null,
         maxWeeks: weeks,
         audioMap: _audioMap,
       ),
     );
     if (result != null) {
+      _markDirty();
       if (update != null) {
         update(result);
       } else {
@@ -274,6 +276,7 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
 }
 
 class _ItemCard extends StatefulWidget {
+  final ScheduleItem? parent;
   final ScheduleItem item;
   final ValueChanged<ScheduleItem> onChanged;
   final VoidCallback onDelete;
@@ -281,6 +284,7 @@ class _ItemCard extends StatefulWidget {
   final List<Map<String, dynamic>> audioMap;
   const _ItemCard({
     super.key,
+    this.parent,
     required this.item,
     required this.onChanged,
     required this.onDelete,
@@ -328,10 +332,17 @@ class _ItemCardState extends State<_ItemCard> {
                 const Icon(Icons.visibility_off, size: 16, color: Colors.grey),
               const SizedBox(width: 6),
               Text(
-                _item.title,
+                _item.title == ScheduleItem.itemWithoutTitle
+                    ? 'Placeholder Item'
+                    : _item.title,
                 style: TextStyle(
                   decoration: _item.enabled ? null : TextDecoration.lineThrough,
-                  color: _item.enabled ? null : Colors.grey,
+                  fontStyle: _item.isPlaceholderItem ? FontStyle.italic : null,
+                  color: _item.enabled
+                      ? _item.isPlaceholderItem
+                            ? Colors.blue
+                            : null
+                      : Colors.grey,
                 ),
               ),
             ],
@@ -340,7 +351,8 @@ class _ItemCardState extends State<_ItemCard> {
         subtitle: Text(
           [
             if (_item.category != null) _item.category!,
-            '${_item.slots.length} slots',
+            if (_item.actualSlots().isNotEmpty)
+              '${_item.slots.length} ${_item.actualSlots().length > 1 ? 'slots' : 'slot'}',
           ].join(' • '),
         ),
         children: [
@@ -354,6 +366,7 @@ class _ItemCardState extends State<_ItemCard> {
                     context: context,
                     builder: (_) => _ItemEditorDialog(
                       item: _item,
+                      parent: widget.parent,
                       maxWeeks: widget.maxWeeks,
                       audioMap: widget.audioMap,
                     ),
@@ -429,6 +442,7 @@ class _ItemCardState extends State<_ItemCard> {
               child: _ItemCard(
                 key: ValueKey(e.value),
                 item: e.value,
+                parent: widget.item,
                 maxWeeks: widget.maxWeeks,
                 audioMap: widget.audioMap,
                 onChanged: (u) {
@@ -460,10 +474,12 @@ class _ItemCardState extends State<_ItemCard> {
 
 class _ItemEditorDialog extends StatefulWidget {
   final ScheduleItem? item;
+  final ScheduleItem? parent;
   final int maxWeeks;
   final List<Map<String, dynamic>> audioMap;
   const _ItemEditorDialog({
     this.item,
+    this.parent,
     required this.maxWeeks,
     this.audioMap = const [],
   });
@@ -489,6 +505,8 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog>
   final linkCtrl = TextEditingController();
   List<ScheduleSlot> slots = [];
   late bool enabled = widget.item?.enabled ?? true;
+  late bool isPlaceHolderItem = widget.item?.isPlaceholderItem ?? false;
+  String? _error;
 
   final categories = const [
     'drill',
@@ -522,7 +540,20 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _field(title, 'Title *'),
+              SwitchListTile(
+                title: const Text('Placeholder Item'),
+                value: isPlaceHolderItem,
+                onChanged: (value) => setState(() {
+                  isPlaceHolderItem = value;
+                  if (value) {
+                    title.text = ScheduleItem.itemWithoutTitle;
+                  } else {
+                    title.text = widget.item?.title ?? '';
+                  }
+                }),
+              ),
+              if (!isPlaceHolderItem) _field(title, 'Title *'),
+              //),
               SwitchListTile(
                 title: const Text('Enabled'),
                 value: enabled,
@@ -627,6 +658,18 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog>
                 ),
               ),
               ...createSlotRows(slots),
+              if (_error != null)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: BouncingScrollPhysics(),
+                  child: Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Colors.red.shade700,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
               TextButton.icon(
                 onPressed: () => _editSlot(null),
                 icon: const Icon(Icons.add),
@@ -673,6 +716,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog>
         maxWeeks: widget.maxWeeks,
         slot: existing,
         parent: widget.item,
+        parentOfParent: widget.parent,
       ),
     );
     if (s != null) {
@@ -694,6 +738,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog>
         deletedIndex: idx,
       );
       if (error != null) {
+        setState(() => _error = 'Deletion failed: $error');
         showSnackBar(context, error);
         return;
       }
@@ -704,8 +749,8 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog>
   void _save() {
     final audio = audioValue == 'custom' ? customAudio.text.trim() : audioValue;
     final item = ScheduleItem(
-      title: title.text.trim().isEmpty
-          ? ScheduleParser.dummyTitle
+      title: isPlaceHolderItem
+          ? ScheduleItem.itemWithoutTitle
           : title.text.trim(),
       enabled: enabled,
       changed: true,
@@ -732,7 +777,13 @@ class _SlotPicker extends StatefulWidget {
   final int maxWeeks;
   final ScheduleSlot? slot;
   final ScheduleItem? parent;
-  const _SlotPicker({required this.maxWeeks, this.slot, required this.parent});
+  final ScheduleItem? parentOfParent;
+  const _SlotPicker({
+    required this.maxWeeks,
+    this.slot,
+    required this.parent,
+    required this.parentOfParent,
+  });
   @override
   State<_SlotPicker> createState() => _SlotPickerState();
 }
@@ -867,7 +918,7 @@ class _SlotPickerState extends State<_SlotPicker>
       if (ts == widget.slot!.timeStart && te == widget.slot!.timeEnd) {
         hasTime = widget.slot!.hasTime;
       } else {
-        true;
+        hasTime = true;
       }
     }
     final newSlot = ScheduleSlot(
@@ -882,21 +933,25 @@ class _SlotPickerState extends State<_SlotPicker>
       changed: true,
     );
 
-    if (widget.parent != null) {
+    if (widget.parentOfParent != null) {
+      // Check if parent ScheduleItem allows this slot
       final err = validateTimeSlotsAgainstParent(
         weeks: weeks.toList(),
         days: days.toList(),
         hasTime: hasTime,
         ts: ts,
         te: te,
-        parent: widget.parent!,
+        parent: widget.parentOfParent!,
       );
       if (err != null) {
         setState(() => _error = 'Validation Error: $err');
         showSnackBar(context, 'Validation Error: $err');
         return;
       }
+    }
 
+    if (widget.slot != null) {
+      // Only check children if the slot is being editted and not added
       List<ScheduleSlot> parentSlots = [];
       final err2 = validateChildrenTimeSlotsAgainstParentSlots(
         parent: widget.parent!,
