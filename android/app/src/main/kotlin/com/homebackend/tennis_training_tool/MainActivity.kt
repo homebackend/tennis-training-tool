@@ -1,4 +1,4 @@
-package jakhar.neeraj.tennis_training_tool
+package com.homebackend.tennis_training_tool
 
 import io.flutter.embedding.android.FlutterActivity
 

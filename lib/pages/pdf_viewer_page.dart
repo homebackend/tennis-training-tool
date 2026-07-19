@@ -9,13 +9,14 @@
 import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_common/mixin/encrypt_decryt_service.dart';
+import 'package:flutter_common/mixin/syncer_core.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../mixins/github_syncer.dart';
 import '../mixins/page_common.dart';
-import '../services/encrypt_decryt_service.dart';
 import '../services/pdf_loader_service.dart';
 
 class PdfViewerPage extends StatefulWidget {
@@ -32,6 +33,7 @@ class _PdfViewerPageState extends State<PdfViewerPage>
         PageCommon,
         EncryptDecryptService,
         PdfLoaderService,
+        SyncerCore,
         GitHubSyncer,
         WidgetsBindingObserver {
   static final String keyPdfIsTocVisible = 'pdf_is_toc_visible';

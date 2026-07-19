@@ -12,12 +12,12 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_common/mixin/encrypt_decryt_service.dart';
 import 'package:http/http.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../mixins/github_syncer.dart';
 import 'tracker_sync_service.dart';
-import 'encrypt_decryt_service.dart';
 
 mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   static final _keyLastPickedLocalPath = 'last_picked_local_path';

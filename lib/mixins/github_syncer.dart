@@ -6,257 +6,42 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* Flow:
- *   ┌─────────────────────────────────────────────────────────┐
- *   ↓                                                         │
- * Timer -> sync -> has it modified? -no-> pull -> load -> update last sync
- *   ↑              since last sync?         ↑
- *   │                  │                    │               
- *   │                  │                    └────────────────────────┐
- *   │                  └yes-> user intervention required? -no-> push ┘ 
- *   │                                   │                         ↑
- *   │ ┌─────────────────────────────────┘                         │
- *   │ └yes-> show user dialog box->if user resolves conflits?-yes-┘
- *   │                                       │
- *   └───────retain local/remote changes <-no┘  
- */
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_common/mixin/encrypt_decryt_service.dart';
+import 'package:flutter_common/mixin/syncer_core.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../services/encrypt_decryt_service.dart';
 import '../services/preferences_backup_service.dart';
 import '../tool.dart';
 
 mixin GitHubSyncer<DataType>
-    implements EncryptDecryptService, WidgetsBindingObserver {
+    implements SyncerCore, EncryptDecryptService, WidgetsBindingObserver {
   static final keyGitRepo = PreferencesBackupService.keyGitRepo;
   static final keyGitToken = PreferencesBackupService.keyGitToken;
   static final keyEncPwd = PreferencesBackupService.keyEncPwd;
 
-  bool isSyncBlocked = false;
-  bool isSyncInProgress = false;
-  bool isModified = false;
-  DateTime _lastFetch = DateTime(0);
-
-  SharedPreferences get sharedPreferences;
-  FlutterSecureStorage get secureStorage;
-  http.Client get client;
-
-  String get keyHasSyncDataModified;
-  String get keyDocumentLastModified;
-  String get keyDocumentSha;
-
-  String? appSha;
-  String? appEtag;
-
-  bool get isModifiable;
-  String get localFileName;
   String get githubFilePath;
-  Duration get syncDuration;
-
-  void notifySyncStarted();
-  void notifySyncDone();
-  void notifySyncFailed();
-  Future<void> processContentPostLoad(Uint8List content);
-  Future<void> processConflicts(Uint8List serverData, String serverSha);
-  Future<void> syncDataLoader();
-
-  Future<Uint8List> getContentsForWrite() async {
-    final cacheFile = await _cacheFile();
-    return await cacheFile.readAsBytes();
-  }
-
-  Timer? _syncTimer;
-
-  Future<void> initializeSyncer() async {
-    appSha = sharedPreferences.getString(keyDocumentSha);
-    appEtag = sharedPreferences.getString(keyDocumentLastModified);
-    isModified = sharedPreferences.getBool(keyHasSyncDataModified) ?? false;
-
-    WidgetsBinding.instance.addObserver(this);
-    await _loadSyncData();
-    _startTimer();
-  }
-
-  void disposeSyncer() {
-    _syncTimer?.cancel();
-  }
-
-  void _startTimer() {
-    _syncTimer?.cancel();
-    _syncTimer = Timer.periodic(
-      Duration(minutes: 1),
-      (_) => _syncFromNetwork(true),
-    );
-  }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _syncFromNetwork(true);
-      _startTimer();
-    }
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.hidden) {
-      _syncTimer?.cancel();
-    }
-  }
+  Future<void> notifyLoadedFromCache() async => AudioNotifier.loadedFromCache();
 
-  Future<void> syncData() async {
-    await _syncFromNetwork(true);
-  }
+  @override
+  Future<void> notifyLoadedFromNetwork() async =>
+      AudioNotifier.loadedFromNetwork();
 
-  Future<void> _loadSyncData() async {
-    final cacheFile = await _cacheFile();
-    bool cacheFileExists =
-        cacheFile.existsSync() && appEtag != null && appEtag!.isNotEmpty;
-    if (cacheFileExists) {
-      unawaited(
-        // No edit should be allowed until sync is done
-        _syncFromNetwork(true).catchError((e) async {
-          log('Error during background sync: $e');
-          notifySyncFailed();
-          await processContentPostLoad(await cacheFile.readAsBytes());
-        }),
-      );
-      await processContentPostLoad(await cacheFile.readAsBytes());
-    } else {
-      await _syncFromNetwork(false);
-    }
-  }
+  @override
+  Future<void> notifyLoadErrorOccurred() async => AudioNotifier.errorOccurred();
 
-  Future<void> cacheLocally(Uint8List bytes, String sha, String etag) async {
-    appSha = sha;
-    appEtag = etag;
-    final cacheFile = await _cacheFile();
-    cacheFile.writeAsBytes(bytes);
-    await sharedPreferences.setString(keyDocumentSha, sha);
-    await sharedPreferences.setString(keyDocumentLastModified, etag);
-  }
+  Future<void> pushToGitHubWithAutoMerge({String? retryServerFileSha}) =>
+      pushWithAutoMerge(retryServerFileSha: retryServerFileSha);
 
-  Future<void> _syncFromNetwork(bool background) async {
-    if (isSyncInProgress) {
-      return;
-    }
-
-    try {
-      isSyncInProgress = true;
-      if (isModifiable && isModified) {
-        await _saveToNetwork();
-      } else {
-        if (DateTime.now().difference(_lastFetch) < syncDuration) {
-          await _loadFromNetwork(background);
-          _lastFetch = DateTime.now();
-        }
-      }
-    } finally {
-      isSyncInProgress = false;
-    }
-  }
-
-  Future<void> _saveToNetwork() async {
-    await pushToGitHubWithAutoMerge();
-    final cacheFile = await _cacheFile();
-    await processContentPostLoad(await cacheFile.readAsBytes());
-  }
-
-  Future<void> _loadFromNetwork(bool background) async {
-    bool thereWasException = false;
-
-    try {
-      notifySyncStarted();
-      final cacheFile = await _cacheFile();
-      final lastMod = cacheFile.existsSync() ? appEtag : '';
-      final documentSha = cacheFile.existsSync() ? appSha : '';
-      final (code, sha, etag, bytes) = await fetchFromGitHub(
-        lastModified: lastMod,
-        documentSha: documentSha,
-      );
-
-      if (cacheFile.existsSync() && code == 304) {
-        AudioNotifier.loadedFromCache();
-        log('Loaded from cache: ${runtimeType.toString()}');
-        await processContentPostLoad(await cacheFile.readAsBytes());
-      } else if (code == 200) {
-        AudioNotifier.loadedFromNetwork();
-        log('Loaded from network: ${runtimeType.toString()}');
-        await cacheLocally(bytes!, sha!, etag!);
-        await processContentPostLoad(bytes);
-        if (background) {
-          // If cacheFileExists is true that means earlier
-          // we loaded data from cache and now new version
-          // of cache is available. So notify.
-          syncDataLoader();
-        }
-      } else {
-        AudioNotifier.errorOccurred();
-        log('Error during http call: $code for ${runtimeType.toString()}');
-        throw (Exception('HTTP $code'));
-      }
-    } catch (e) {
-      thereWasException = true;
-      log('Error: $e');
-      notifySyncFailed();
-      rethrow;
-    } finally {
-      if (!thereWasException) {
-        notifySyncDone();
-      }
-    }
-  }
-
-  Future<void> pushToGitHubWithAutoMerge({String? retryServerFileSha}) async {
-    bool thereWasException = false;
-
-    try {
-      notifySyncStarted();
-      final bytes = await getContentsForWrite();
-      final res = await pushToGitHubWithResponse(
-        bytes,
-        fileSha: retryServerFileSha ?? appSha,
-      );
-
-      if (res.statusCode == 200 || res.statusCode == 201) {
-        final fileSha = json.decode(res.body)["content"]["sha"].toString();
-        final fileEtag = res.headers['etag'] ?? '';
-        await cacheLocally(bytes, fileSha, fileEtag);
-      } else if (res.statusCode == 409) {
-        final (code, serverFileSha, serverFileEtag, serverData) =
-            await fetchFromGitHub();
-
-        if (serverFileSha == null || serverData == null) {
-          throw Exception(
-            'Failed to pull latest version of $githubFilePath: $code',
-          );
-        }
-
-        await processConflicts(serverData, serverFileSha);
-      } else {
-        throw Exception("Push error: ${res.body}");
-      }
-    } catch (_) {
-      thereWasException = true;
-      notifySyncFailed();
-      rethrow;
-    } finally {
-      if (!thereWasException) {
-        isModified = false;
-        await setSyncDataModified(false);
-        notifySyncDone();
-      }
-    }
-  }
-
-  Future<(int, String?, String?, Uint8List?)> fetchFromGitHub({
+  @override
+  Future<(int, String?, String?, Uint8List?)> fetchRemote({
     String? lastModified,
     String? documentSha,
   }) async {
@@ -295,10 +80,16 @@ mixin GitHubSyncer<DataType>
     return (dataRes.statusCode, null, null, null);
   }
 
-  Future<http.Response> pushToGitHubWithResponse(
-    Uint8List bytes, {
-    String? fileSha,
-  }) async {
+  @override
+  Future<
+    (
+      PushReturnCode statusCode,
+      String? newVersion,
+      String? newEtag,
+      http.Response raw,
+    )
+  >
+  pushRemote(Uint8List bytes, {String? fileSha}) async {
     final (url, headers, pass) = await _getFileInfoRequestData();
     headers["Content-Type"] = "application/json";
 
@@ -308,11 +99,23 @@ mixin GitHubSyncer<DataType>
       "content": base64Encode(encryptedBytes),
       "sha": ?fileSha,
     };
-    return await client.put(
+    final res = await client.put(
       url,
       headers: headers,
       body: json.encode(requestBody),
     );
+
+    PushReturnCode statusCode = [200, 201, 204].contains(res.statusCode)
+        ? PushReturnCode.success
+        : [409, 412].contains(res.statusCode)
+        ? PushReturnCode.conflict
+        : PushReturnCode.error;
+    final newFileSha = statusCode == PushReturnCode.success
+        ? json.decode(res.body)["content"]["sha"].toString()
+        : '';
+    final newFileEtag = res.headers['etag'] ?? '';
+
+    return (statusCode, newFileSha, newFileEtag, res);
   }
 
   Future<(String, Uint8List)> _extractContent(
@@ -375,19 +178,5 @@ mixin GitHubSyncer<DataType>
     final uri = Uri.parse(url);
     log('Blob url: $url');
     return (uri, headers, pass);
-  }
-
-  Future<File> _cacheFile() async {
-    final dir = await getApplicationCacheDirectory();
-    return File('${dir.path}/$localFileName');
-  }
-
-  Future<bool> hasSyncDataModified() async {
-    return isModified;
-  }
-
-  Future<void> setSyncDataModified(bool modified) async {
-    isModified = modified;
-    await sharedPreferences.setBool(keyHasSyncDataModified, modified);
   }
 }

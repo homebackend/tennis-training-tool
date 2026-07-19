@@ -13,6 +13,8 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_common/mixin/encrypt_decryt_service.dart';
+import 'package:flutter_common/mixin/syncer_core.dart';
 import 'package:flutter_common/tool.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -20,7 +22,6 @@ import 'package:http/http.dart' as http;
 import 'package:yaml/yaml.dart';
 
 import '../mixins/github_syncer.dart';
-import 'encrypt_decryt_service.dart';
 
 class CellConflict {
   final String columnName;
@@ -73,7 +74,11 @@ class ConcurrentModificationException implements Exception {
 }
 
 class TrackerSyncService
-    with EncryptDecryptService, GitHubSyncer, WidgetsBindingObserver {
+    with
+        EncryptDecryptService,
+        SyncerCore,
+        GitHubSyncer,
+        WidgetsBindingObserver {
   static final StreamController<void> globalResyncTrigger =
       StreamController<void>.broadcast();
 
