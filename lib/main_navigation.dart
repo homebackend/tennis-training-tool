@@ -7,7 +7,9 @@
  */
 
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_common/main_with_app_setup.dart';
+import 'package:flutter_common/mixin/main_config_manager.dart';
+import 'package:flutter_common/widgets/app_setup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'pages/audio_player_page.dart';
@@ -15,7 +17,7 @@ import 'pages/schedule_page.dart';
 import 'pages/tracker_sync_page.dart';
 import 'pages/pdf_viewer_page.dart';
 import 'services/preferences_backup_service.dart';
-import 'widgets/app_setup.dart';
+import 'services/tracker_sync_service.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -24,101 +26,73 @@ class MainNavigation extends StatefulWidget {
   State<MainNavigation> createState() => _MainNavigationState();
 }
 
-class _MainNavigationState extends State<MainNavigation> {
-  bool _initialized = false;
-  bool _requireSetup = false;
+class _MainNavigationState extends MainWithAppSetupState<MainNavigation>
+    with MainConfigManager {
+  static final List<AppSetupField> _appSetupFields = [
+    AppSetupField(
+      PreferencesBackupService.keyGitRepo,
+      'GitHub Repository Target (owner/repo)',
+      false,
+    ),
+    AppSetupField(
+      PreferencesBackupService.keyGitToken,
+      'GitHub PAT Token',
+      false,
+    ),
+    AppSetupField(
+      PreferencesBackupService.keyEncPwd,
+      'AES Decryption Key/Password',
+      true,
+    ),
+  ];
+
   int _currentIndex = 0;
-  final FlutterSecureStorage secureStorage = FlutterSecureStorage();
   late final List<Widget> _pages;
 
   @override
-  void initState() {
-    super.initState();
+  List<AppSetupField> get appSetupFields => _appSetupFields;
 
-    _initialize();
-  }
-
-  Future<void> _initialize() async {
-    SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
-
-    _pages = [
-      SchedulePage(secureStorage, sharedPreferences),
-      PdfViewerPage(secureStorage, sharedPreferences),
-      const AudioPlayerPage(),
-      TrackerSyncPage(secureStorage, sharedPreferences),
-    ];
-
-    await PreferencesBackupService(secureStorage).upgradePreferences();
-    final gitRepo = await secureStorage.read(
-      key: PreferencesBackupService.keyGitRepo,
-    );
-    final gitToken = await secureStorage.read(
-      key: PreferencesBackupService.keyGitToken,
-    );
-    final encryptionPassword = await secureStorage.read(
-      key: PreferencesBackupService.keyEncPwd,
-    );
-    setState(() {
-      _initialized = true;
-      if (gitRepo == null || gitToken == null || encryptionPassword == null) {
-        _requireSetup = true;
-      }
-    });
+  @override
+  void notifyConfigReload() {
+    TrackerSyncService.globalResyncTrigger.add(null);
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (!_initialized) {
-      return CircularProgressIndicator();
-    }
+  Future<void> initializeState(SharedPreferences sharedPreferences) async {
+    _pages = [
+      SchedulePage(secureStorage, sharedPreferences, this),
+      PdfViewerPage(secureStorage, sharedPreferences, this),
+      const AudioPlayerPage(),
+      TrackerSyncPage(secureStorage, sharedPreferences, this),
+    ];
 
-    if (_requireSetup) {
-      return AppSetup(
-        PreferencesBackupService(secureStorage),
-        (String gitRepo, String gitToken, String password) async {
-          await secureStorage.write(
-            key: PreferencesBackupService.keyGitRepo,
-            value: gitRepo,
-          );
-          await secureStorage.write(
-            key: PreferencesBackupService.keyGitToken,
-            value: gitToken,
-          );
-          await secureStorage.write(
-            key: PreferencesBackupService.keyEncPwd,
-            value: password,
-          );
-          setState(() => _requireSetup = false);
-        },
-        () => setState(() => _requireSetup = false),
-      );
-    }
-
-    return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _pages),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_view_day),
-            activeIcon: Icon(Icons.calendar_view_day_outlined),
-            label: 'Schedule',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.picture_as_pdf),
-            label: 'PDF',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.music_note), label: 'Audio'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics_outlined),
-            label: 'Athlete Tracker',
-          ),
-        ],
-      ),
-    );
+    await PreferencesBackupService(
+      secureStorage,
+    ).upgradePreferences(await getConfigValues());
   }
+
+  @override
+  Widget buildMainApp(BuildContext context) => Scaffold(
+    body: IndexedStack(index: _currentIndex, children: _pages),
+    bottomNavigationBar: BottomNavigationBar(
+      currentIndex: _currentIndex,
+      type: BottomNavigationBarType.fixed,
+      selectedItemColor: Colors.blue,
+      unselectedItemColor: Colors.grey,
+      onTap: (index) => setState(() => _currentIndex = index),
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.calendar_view_day),
+          activeIcon: Icon(Icons.calendar_view_day_outlined),
+          label: 'Schedule',
+        ),
+        BottomNavigationBarItem(icon: Icon(Icons.picture_as_pdf), label: 'PDF'),
+        BottomNavigationBarItem(icon: Icon(Icons.music_note), label: 'Audio'),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.analytics_outlined),
+          label: 'Athlete Tracker',
+        ),
+      ],
+    ),
+  );
 }

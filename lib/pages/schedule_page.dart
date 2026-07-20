@@ -10,6 +10,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_common/mixin/main_config_manager.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -28,7 +29,13 @@ import 'schedule_creator_page.dart';
 class SchedulePage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
   final SharedPreferences sharedPreferences;
-  const SchedulePage(this.secureStorage, this.sharedPreferences, {super.key});
+  final MainConfigManager configManager;
+  const SchedulePage(
+    this.secureStorage,
+    this.sharedPreferences,
+    this.configManager, {
+    super.key,
+  });
   @override
   State<SchedulePage> createState() => _SchedulePageState();
 }
@@ -543,7 +550,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
               );
             },
           ),
-          ...getAppBarCommonActions(),
+          ...getAppBarCommonActions(widget.configManager),
         ],
       ),
       body: dayItems.isEmpty

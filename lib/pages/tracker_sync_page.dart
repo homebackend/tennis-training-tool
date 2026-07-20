@@ -9,6 +9,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_common/mixin/main_config_manager.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,9 +26,11 @@ import '../widgets/tracker_data_grid.dart';
 class TrackerSyncPage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
   final SharedPreferences sharedPreferences;
+  final MainConfigManager configManager;
   const TrackerSyncPage(
     this.secureStorage,
-    this.sharedPreferences, {
+    this.sharedPreferences,
+    this.configManager, {
     super.key,
   });
 
@@ -247,7 +250,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
                       }
                     },
             ),
-          ...getAppBarCommonActions(),
+          ...getAppBarCommonActions(widget.configManager),
         ],
         bottom: _tabController != null
             ? TabBar(

@@ -10,6 +10,7 @@ import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_common/mixin/encrypt_decryt_service.dart';
+import 'package:flutter_common/mixin/main_config_manager.dart';
 import 'package:flutter_common/mixin/syncer_core.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pdfrx/pdfrx.dart';
@@ -22,7 +23,13 @@ import '../services/pdf_loader_service.dart';
 class PdfViewerPage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
   final SharedPreferences sharedPreferences;
-  const PdfViewerPage(this.secureStorage, this.sharedPreferences, {super.key});
+  final MainConfigManager configManager;
+  const PdfViewerPage(
+    this.secureStorage,
+    this.sharedPreferences,
+    this.configManager, {
+    super.key,
+  });
 
   @override
   State<PdfViewerPage> createState() => _PdfViewerPageState();
@@ -119,7 +126,7 @@ class _PdfViewerPageState extends State<PdfViewerPage>
             tooltip: 'Upload New Document',
             onPressed: () async => pickLocalDocument(),
           ),
-          ...getAppBarCommonActions(),
+          ...getAppBarCommonActions(widget.configManager),
         ],
       ),
       body: Row(
