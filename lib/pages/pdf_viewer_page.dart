@@ -81,7 +81,7 @@ class _PdfViewerPageState extends State<PdfViewerPage>
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
+    if (isLoading || localDecryptedPath == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
