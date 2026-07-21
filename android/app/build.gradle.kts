@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "jakhar.neeraj.tennis_training_tool"
+    namespace = "com.homebackend.tennis_training_tool"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -18,7 +18,7 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID
         // (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "jakhar.neeraj.tennis_training_tool"
+        applicationId = "com.homebackend.tennis_training_tool"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

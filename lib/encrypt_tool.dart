@@ -9,7 +9,7 @@
 import 'dart:developer';
 import 'dart:io';
 
-import 'services/encrypt_decryt_service.dart';
+import 'package:flutter_common/mixin/encrypt_decryt_service.dart';
 
 class Encrypter with EncryptDecryptService {}
 

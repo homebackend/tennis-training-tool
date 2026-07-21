@@ -10,15 +10,20 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_common/mixin/encrypt_decryt_service.dart';
+import 'package:flutter_common/mixin/syncer_core.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../mixins/github_syncer.dart';
-import 'encrypt_decryt_service.dart';
 
 class ScheduleSyncService
-    with EncryptDecryptService, GitHubSyncer, WidgetsBindingObserver {
+    with
+        EncryptDecryptService,
+        SyncerCore,
+        GitHubSyncer,
+        WidgetsBindingObserver {
   static final keySchedLastmod = 'sched_lastmod';
   static final keySchedSha = 'sched_sha';
   static final keySchedHasModified = 'sched_has_modified';

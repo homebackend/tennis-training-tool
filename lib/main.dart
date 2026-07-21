@@ -35,7 +35,7 @@ Future<void> main() async {
     await windowManager.ensureInitialized();
 
     WindowOptions windowOptions = const WindowOptions(
-      title: "Tennis Training Tool",
+      title: appName,
       center: true,
       skipTaskbar: false,
     );

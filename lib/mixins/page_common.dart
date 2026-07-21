@@ -7,6 +7,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter_common/mixin/main_config_manager.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:tennis_training_tool/services/preferences_backup_service.dart';
 
@@ -27,12 +28,12 @@ mixin PageCommon {
     }
   }
 
-  List<Widget> getAppBarCommonActions() => [
+  List<Widget> getAppBarCommonActions(MainConfigManager configManager) => [
     IconButton(
       icon: const Icon(Icons.output),
       tooltip: 'Export Settings',
       onPressed: () async {
-        final msg = await backupService.exportSystemPreferences();
+        final msg = await configManager.exportSystemPreferences();
         if (msg != null) showSnackBar(msg);
       },
     ),
