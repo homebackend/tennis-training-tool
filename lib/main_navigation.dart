@@ -50,6 +50,9 @@ class _MainNavigationState extends MainWithAppSetupState<MainNavigation>
   late final List<Widget> _pages;
 
   @override
+  String get configFileBaseName => 'ttt';
+
+  @override
   List<AppSetupField> get appSetupFields => _appSetupFields;
 
   @override

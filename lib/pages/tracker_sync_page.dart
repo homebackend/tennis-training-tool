@@ -10,11 +10,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_common/mixin/main_config_manager.dart';
+import 'package:flutter_common/mixin/page_common.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../mixins/page_common.dart';
 import '../services/tracker_sync_service.dart';
 import '../tool.dart';
 import '../widgets/athlete_analytics_dashboard.dart';

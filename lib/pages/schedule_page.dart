@@ -11,6 +11,7 @@ import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_common/mixin/main_config_manager.dart';
+import 'package:flutter_common/mixin/page_common.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -19,7 +20,6 @@ import 'package:tennis_training_tool/tool.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 
-import '../mixins/page_common.dart';
 import '../models/schedule.dart';
 import '../services/schedule_parser_service.dart';
 import '../services/schedule_sync_service.dart';
@@ -329,52 +329,21 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
             : null,
         child: ListTile(
           contentPadding: EdgeInsets.only(left: 16 + depth * 16.0, right: 16),
-          leading: isLive
-              ? const Icon(Icons.circle, size: 10, color: Colors.green)
-              : null,
-          title: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  color: isLive ? Theme.of(context).colorScheme.primary : null,
-                ),
-                SizedBox(width: 10),
-                Text(
-                  item.title,
-                  style: TextStyle(fontWeight: isLive ? FontWeight.bold : null),
-                ),
-                if (item.audio != null)
-                  IconButton(
-                    icon: Icon(
-                      item.audio == _currentPlayingFile && _audioPlayer.playing
-                          ? Icons.pause_circle_filled
-                          : Icons.play_circle_fill,
-                      color: isLive
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                    onPressed: () => _handleAudio(item),
-                  ),
-                if (item.audio != null &&
-                    item.audio == _currentPlayingFile &&
-                    _audioPlayer.playing)
-                  IconButton(
-                    icon: Icon(
-                      Icons.stop_circle_outlined,
-                      color: isLive
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                    onPressed: () {
-                      _audioPlayer.stop();
-                      _audioPlayer.seek(Duration.zero);
-                    },
-                  ),
-              ],
-            ),
+          leading: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isLive)
+                const Icon(Icons.circle, size: 10, color: Colors.green),
+              Icon(
+                icon,
+                color: isLive ? Theme.of(context).colorScheme.primary : null,
+              ),
+            ],
+          ),
+          title: Text(
+            item.title,
+            maxLines: 3,
+            style: TextStyle(fontWeight: isLive ? FontWeight.bold : null),
           ),
           subtitle: Column(
             mainAxisAlignment: MainAxisAlignment.start,
@@ -390,6 +359,33 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (item.audio != null)
+                IconButton(
+                  icon: Icon(
+                    item.audio == _currentPlayingFile && _audioPlayer.playing
+                        ? Icons.pause_circle_filled
+                        : Icons.play_circle_fill,
+                    color: isLive
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                  onPressed: () => _handleAudio(item),
+                ),
+              if (item.audio != null &&
+                  item.audio == _currentPlayingFile &&
+                  _audioPlayer.playing)
+                IconButton(
+                  icon: Icon(
+                    Icons.stop_circle_outlined,
+                    color: isLive
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                  onPressed: () {
+                    _audioPlayer.stop();
+                    _audioPlayer.seek(Duration.zero);
+                  },
+                ),
               for (final l in item.links)
                 IconButton(
                   icon: Icon(
