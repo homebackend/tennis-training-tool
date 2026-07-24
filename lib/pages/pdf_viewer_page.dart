@@ -11,13 +11,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_common/mixin/encrypt_decryt_service.dart';
 import 'package:flutter_common/mixin/main_config_manager.dart';
+import 'package:flutter_common/mixin/page_common.dart';
 import 'package:flutter_common/mixin/syncer_core.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../mixins/github_syncer.dart';
-import '../mixins/page_common.dart';
 import '../services/pdf_loader_service.dart';
 
 class PdfViewerPage extends StatefulWidget {

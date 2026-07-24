@@ -16,11 +16,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID
-        // (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.homebackend.tennis_training_tool"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -30,25 +26,18 @@ android {
 
     buildTypes {
         getByName("release") {
-            // was: minifyEnabled true
             isMinifyEnabled = true
-
-            // was: shrinkResources true
             isShrinkResources = true
 
-            // keep the audio_service classes we just added
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
 
-            // if you have signing
-            // signingConfig = signingConfigs.getByName("release")
             signingConfig = signingConfigs.getByName("debug")
         }
 
         getByName("debug") {
-            // keep debug fast - no minify
             isMinifyEnabled = false
             isShrinkResources = false
 
