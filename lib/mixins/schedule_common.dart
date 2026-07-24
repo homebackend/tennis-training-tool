@@ -167,4 +167,12 @@ mixin ScheduleCommon {
     final p = t.split(':');
     return int.parse(p[0]) * 60 + int.parse(p[1]);
   }
+
+  String slotTitle(ScheduleSlot s) =>
+      'W:${_c(s.weeks)} • ${_days(s.days)} • ${s.timeStart}-${s.timeEnd}';
+
+  String _days(List<int> d) =>
+      d.map((e) => ScheduleCommon.weekNames[e]).join(',');
+
+  String _c(List<int> v) => v.join(',');
 }
