@@ -296,7 +296,7 @@ class _ItemCard extends StatefulWidget {
   State<_ItemCard> createState() => _ItemCardState();
 }
 
-class _ItemCardState extends State<_ItemCard> {
+class _ItemCardState extends State<_ItemCard> with ScheduleCommon {
   late ScheduleItem _item;
 
   @override
@@ -348,13 +348,19 @@ class _ItemCardState extends State<_ItemCard> {
             ],
           ),
         ),
-        subtitle: Text(
-          [
-            if (_item.category != null) _item.category!,
+        subtitle: Column(
+          children: [
+            if (_item.category != null)
+              Text(
+                _item.category!,
+                style: TextStyle(decoration: TextDecoration.underline),
+              ),
+            if (_item.actualSlots().isEmpty) Text('No slots configured'),
             if (_item.actualSlots().isNotEmpty)
-              '${_item.slots.length} ${_item.actualSlots().length > 1 ? 'slots' : 'slot'}',
-          ].join(' • '),
+              ..._item.actualSlots().map((s) => Text(slotTitle(s))),
+          ],
         ),
+
         children: [
           OverflowBar(
             children: [
@@ -986,9 +992,7 @@ mixin SlotCommon implements ScheduleCommon {
       .map(
         (e) => ListTile(
           dense: true,
-          title: Text(
-            'W:${_c(e.value.weeks)} • ${_days(e.value.days)} • ${e.value.timeStart}-${e.value.timeEnd}',
-          ),
+          title: Text(slotTitle(e.value)),
           trailing: editable
               ? Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1008,11 +1012,6 @@ mixin SlotCommon implements ScheduleCommon {
         ),
       )
       .toList();
-
-  String _days(List<int> d) =>
-      d.map((e) => ScheduleCommon.weekNames[e]).join(',');
-
-  String _c(List<int> v) => v.join(',');
 }
 
 void addSlotKeysIfMissing(ScheduleItem item, List<ScheduleSlot> slots) {
