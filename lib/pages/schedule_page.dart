@@ -311,6 +311,37 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
       );
     }
 
+    final linksIcons = [
+      if (item.audio != null)
+        IconButton(
+          icon: Icon(
+            item.audio == _currentPlayingFile && _audioPlayer.playing
+                ? Icons.pause_circle_filled
+                : Icons.play_circle_fill,
+            color: isLive ? Theme.of(context).colorScheme.primary : null,
+          ),
+          onPressed: () => _handleAudio(item),
+        ),
+      if (item.audio != null &&
+          item.audio == _currentPlayingFile &&
+          _audioPlayer.playing)
+        IconButton(
+          icon: Icon(
+            Icons.stop_circle_outlined,
+            color: isLive ? Theme.of(context).colorScheme.primary : null,
+          ),
+          onPressed: () {
+            _audioPlayer.stop();
+            _audioPlayer.seek(Duration.zero);
+          },
+        ),
+      for (final l in item.links)
+        IconButton(
+          icon: Icon(l.contains('youtu') ? Icons.ondemand_video : Icons.link),
+          onPressed: () => _openLink(l),
+        ),
+    ];
+
     if (children.isEmpty) {
       return Container(
         key: itemKey,
@@ -354,47 +385,13 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
                 ...lines.map(
                   (l) => Text('✔ $l', style: const TextStyle(fontSize: 12)),
                 ),
+              if (linksIcons.length > 1)
+                Row(mainAxisSize: MainAxisSize.max, children: linksIcons),
             ],
           ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (item.audio != null)
-                IconButton(
-                  icon: Icon(
-                    item.audio == _currentPlayingFile && _audioPlayer.playing
-                        ? Icons.pause_circle_filled
-                        : Icons.play_circle_fill,
-                    color: isLive
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
-                  ),
-                  onPressed: () => _handleAudio(item),
-                ),
-              if (item.audio != null &&
-                  item.audio == _currentPlayingFile &&
-                  _audioPlayer.playing)
-                IconButton(
-                  icon: Icon(
-                    Icons.stop_circle_outlined,
-                    color: isLive
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
-                  ),
-                  onPressed: () {
-                    _audioPlayer.stop();
-                    _audioPlayer.seek(Duration.zero);
-                  },
-                ),
-              for (final l in item.links)
-                IconButton(
-                  icon: Icon(
-                    l.contains('youtu') ? Icons.ondemand_video : Icons.link,
-                  ),
-                  onPressed: () => _openLink(l),
-                ),
-            ],
-          ),
+          trailing: linksIcons.length == 1
+              ? Row(mainAxisSize: MainAxisSize.min, children: linksIcons)
+              : null,
         ),
       );
     }
