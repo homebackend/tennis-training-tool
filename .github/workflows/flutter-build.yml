@@ -236,7 +236,7 @@ jobs:
             install -dm755 "\${pkgdir}/usr/bin"
             ln -s "/opt/tennis-training-tool/tennis-training-tool" "\${pkgdir}/usr/bin/tennis-training-tool"
             install -dm755 "\${pkgdir}/usr/share/applications"
-            install -m644 "${GITHUB_WORKSPACE}/linux/tennis-training-tool.desktop" "\${pkgdir}/usr/share/applications/tennis-training-tool.desktop"
+            install -m644 "${GITHUB_WORKSPACE}/linux/com.homebackend.tennis_training_tool.desktop" "\${pkgdir}/usr/share/applications/com.homebackend.tennis_training_tool.desktop"
             install -dm755 "\${pkgdir}/usr/share/pixmaps"
             install -m644 "${GITHUB_WORKSPACE}/assets/app_logo.png" "\${pkgdir}/usr/share/pixmaps/tennis-training-tool.png"
             install -dm755 "\${pkgdir}/usr/share/licenses/\${pkgname}"
@@ -300,7 +300,7 @@ jobs:
 
           cp -r build/linux/x64/release/bundle/. "${PKG_DIR}/opt/tennis-training-tool/"
           ln -s /opt/tennis-training-tool/tennis-training-tool "${PKG_DIR}/usr/bin/tennis-training-tool"
-          cp linux/tennis-training-tool.desktop "${PKG_DIR}/usr/share/applications/tennis-training-tool.desktop"
+          cp linux/com.homebackend.tennis_training_tool.desktop "${PKG_DIR}/usr/share/applications/com.homebackend.tennis_training_tool.desktop"
           cp assets/app_logo.png "${PKG_DIR}/usr/share/pixmaps/tennis-training-tool.png"
           cp LICENSE "${PKG_DIR}/usr/share/doc/tennis-training-tool/copyright"
 
