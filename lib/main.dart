@@ -6,6 +6,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_common/flutter_common.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -27,6 +28,21 @@ Future<void> main() async {
     androidNotificationOngoing: true,
     androidShowNotificationBadge: true,
     androidNotificationIcon: 'drawable/ic_bg_audio_icon',
+  );
+
+  final session = await AudioSession.instance;
+  await session.configure(
+    AudioSessionConfiguration(
+      avAudioSessionCategory: AVAudioSessionCategory.playback,
+      avAudioSessionCategoryOptions:
+          AVAudioSessionCategoryOptions.mixWithOthers,
+      androidAudioAttributes: const AndroidAudioAttributes(
+        contentType: AndroidAudioContentType.music,
+        usage: AndroidAudioUsage.media,
+      ),
+      androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+      androidWillPauseWhenDucked: false,
+    ),
   );
 
   await AudioNotifier.init();

@@ -8,11 +8,11 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_common/app_logger.dart';
 import 'package:flutter_common/mixin/encrypt_decryt_service.dart';
 import 'package:flutter_common/mixin/syncer_core.dart';
 import 'package:flutter_common/tool.dart';
@@ -114,7 +114,7 @@ class TrackerSyncService
 
       await initializeSyncer();
     } catch (e) {
-      log('Error during Tracker sync Service init: $e');
+      appLogger.e('Error during Tracker sync Service init: $e');
     }
   }
 

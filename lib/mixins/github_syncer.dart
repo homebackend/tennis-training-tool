@@ -8,10 +8,10 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_common/app_logger.dart';
 import 'package:flutter_common/mixin/encrypt_decryt_service.dart';
 import 'package:flutter_common/mixin/syncer_core.dart';
 import 'package:http/http.dart' as http;
@@ -162,7 +162,7 @@ mixin GitHubSyncer<DataType>
     final url =
         "https://api.github.com/repos/$repo/contents/$githubFilePath.enc";
     final uri = Uri.parse(url);
-    log('url: $url');
+    appLogger.d('url: $url');
     return (uri, headers, pass);
   }
 
@@ -176,7 +176,7 @@ mixin GitHubSyncer<DataType>
     );
     final url = 'https://api.github.com/repos/$repo/git/blobs/$documentSha';
     final uri = Uri.parse(url);
-    log('Blob url: $url');
+    appLogger.d('Blob url: $url');
     return (uri, headers, pass);
   }
 }

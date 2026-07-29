@@ -7,11 +7,12 @@
  */
 
 import 'dart:convert';
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_common/app_logger.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
+import 'package:tennis_training_tool/services/audio_service.dart';
 
 class AudioPlayerPage extends StatefulWidget {
   const AudioPlayerPage({super.key});
@@ -28,13 +29,13 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
   @override
   void initState() {
     super.initState();
-    _audioPlayer = AudioPlayer();
+    _audioPlayer = AudioService.player;
     _loadAudioData();
     _setupAudioEventListeners();
 
     _audioPlayer.durationStream.listen((Duration? dynamicDuration) {
       if (dynamicDuration != null) {
-        log(
+        appLogger.d(
           "Actual file duration resolved: ${dynamicDuration.inSeconds} seconds",
         );
       }
@@ -118,7 +119,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
         await _loadTrack(fileAssetPath, album, title, duration: trackDuration);
       }
     } catch (e) {
-      log("Audio metadata parse error: $e");
+      appLogger.e("Audio metadata parse error: $e");
     }
   }
 
