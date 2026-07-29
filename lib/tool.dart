@@ -45,7 +45,7 @@ class AudioNotifier {
       _changeCurrentItem,
     ]) {
       final player = AudioPlayer();
-      await player.setPlayerMode(PlayerMode.lowLatency); // not mediaPlayer
+      await player.setPlayerMode(PlayerMode.lowLatency);
       await player.setReleaseMode(ReleaseMode.stop);
       await player.setSource(AssetSource(path));
       await player.setVolume(1.0);
