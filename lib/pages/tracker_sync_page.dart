@@ -236,7 +236,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
             ),
           if (!_localDataModified)
             IconButton(
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Icons.sync),
               tooltip: 'Sync from GitHub',
               onPressed: _isSyncing
                   ? null

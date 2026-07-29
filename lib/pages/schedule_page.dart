@@ -7,15 +7,16 @@
  */
 
 import 'dart:async';
-import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_common/app_logger.dart';
 import 'package:flutter_common/mixin/main_config_manager.dart';
 import 'package:flutter_common/mixin/page_common.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tennis_training_tool/services/audio_service.dart';
 import 'package:tennis_training_tool/tool.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
@@ -70,7 +71,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
   @override
   void initState() {
     super.initState();
-    _audioPlayer = AudioPlayer();
+    _audioPlayer = AudioService.player;
     _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
         _audioPlayer.stop();
@@ -145,7 +146,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
         await _loadFromYaml(_syncService.yaml!);
       }
     } catch (e) {
-      log('Error: $e');
+      appLogger.e('Error: $e');
     }
   }
 
@@ -173,7 +174,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
         if (mounted) _scrollToLive();
       });
     } catch (e) {
-      log('Error: $e');
+      appLogger.e('Error: $e');
     }
   }
 
@@ -209,7 +210,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
       }
       setState(() {});
     } catch (e) {
-      log('Audio error: $e');
+      appLogger.e('Audio error: $e');
     }
   }
 
@@ -521,7 +522,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
         actions: [
           IconButton(
             icon: Icon(_syncInProgress ? Icons.sync_lock : Icons.sync),
-            onPressed: _syncInProgress ? null : _load,
+            onPressed: _syncInProgress ? null : _syncService.syncData,
             tooltip: 'Sync Latest Schedule',
           ),
           IconButton(

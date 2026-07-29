@@ -6,9 +6,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-import 'dart:developer';
-
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_common/app_logger.dart';
 import 'package:uuid/uuid.dart';
 
 String getNewUuid() {
@@ -25,6 +24,20 @@ class AudioNotifier {
   static final Map<String, AudioPlayer> _p = {};
 
   static Future<void> init() async {
+    await AudioPlayer.global.setAudioContext(
+      AudioContext(
+        android: AudioContextAndroid(
+          usageType: AndroidUsageType.assistanceSonification,
+          contentType: AndroidContentType.sonification,
+          audioFocus: AndroidAudioFocus.none,
+        ),
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playback,
+          options: {AVAudioSessionOptions.mixWithOthers},
+        ),
+      ),
+    );
+
     for (final path in [
       _loadedFromNetwork,
       _loadedFromCache,
@@ -32,13 +45,13 @@ class AudioNotifier {
       _changeCurrentItem,
     ]) {
       final player = AudioPlayer();
-      await player.setPlayerMode(PlayerMode.mediaPlayer);
+      await player.setPlayerMode(PlayerMode.lowLatency); // not mediaPlayer
       await player.setReleaseMode(ReleaseMode.stop);
       await player.setSource(AssetSource(path));
       await player.setVolume(1.0);
       _p[path] = player;
     }
-    log('AudioNotifier ready: ${_p.length} sounds');
+    appLogger.d('AudioNotifier ready: ${_p.length} sounds');
   }
 
   static void loadedFromNetwork() => play(_loadedFromNetwork);
@@ -49,7 +62,7 @@ class AudioNotifier {
   static void play(String name) {
     final player = _p[name];
     if (player == null) return;
-    log('Playing audio: $name');
+    appLogger.d('Playing audio: $name');
     player.stop().then((_) => player.resume());
   }
 }

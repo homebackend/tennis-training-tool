@@ -6,7 +6,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-import 'dart:developer';
+import 'package:flutter_common/app_logger.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class PreferencesBackupService {
@@ -48,7 +48,7 @@ class PreferencesBackupService {
       if (_keyMappings.containsKey(key)) {
         for (final xKey in _keyMappings[key]!) {
           if (await secureStorage.containsKey(key: xKey)) {
-            log('Deleting $xKey as $key is used now.');
+            appLogger.d('Deleting $xKey as $key is used now.');
             await secureStorage.delete(key: xKey);
           }
         }
@@ -57,7 +57,7 @@ class PreferencesBackupService {
 
     for (final key in _keysToBeDeleted) {
       if (await secureStorage.containsKey(key: key)) {
-        log('Deleting $key as it is no longer used now.');
+        appLogger.d('Deleting $key as it is no longer used now.');
         await secureStorage.delete(key: key);
       }
     }
