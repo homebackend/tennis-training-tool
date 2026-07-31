@@ -7,6 +7,8 @@
  */
 
 import 'package:uuid/uuid.dart';
+import 'package:yaml/yaml.dart';
+import 'package:yaml_edit/yaml_edit.dart';
 
 class ScheduleItem {
   static final itemWithoutTitle = '__DUMMY__';
@@ -67,7 +69,10 @@ class ScheduleItem {
       if (title.isNotEmpty && title != itemWithoutTitle) 'title': title,
       if (category != null && category!.isNotEmpty) 'category': category,
       if (description != null && description!.isNotEmpty)
-        'description': description,
+        'description': wrapAsYamlNode(
+          description,
+          scalarStyle: ScalarStyle.LITERAL,
+        ),
       if (durationMin != null) 'time': durationMin,
       if (reps != null) 'reps': reps.toString(),
       if (links.isNotEmpty) 'link': links.length > 1 ? links : links[0],
@@ -136,7 +141,11 @@ class ScheduleSlot {
       'days': daysYamlValue(),
       if (hasTime) 'timeStart': timeStart,
       if (hasTime) 'timeEnd': timeEnd,
-      if (description != null) 'description': description,
+      if (description != null)
+        'description': wrapAsYamlNode(
+          description,
+          scalarStyle: ScalarStyle.LITERAL,
+        ),
       if (!enabled) 'enabled': false,
     };
   }

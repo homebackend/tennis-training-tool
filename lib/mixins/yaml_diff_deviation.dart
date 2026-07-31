@@ -26,7 +26,7 @@ mixin YamlDiffDeviation implements YamlDiff {
     final diff = UnifiedDiff.fromPatch(
       patch,
       header: UnifiedDiffHeader.simple(),
-      context: 5,
+      context: 15,
     );
 
     return diff.toString();

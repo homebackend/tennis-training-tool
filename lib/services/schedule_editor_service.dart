@@ -115,7 +115,7 @@ class ScheduleEditorService {
             return matched;
           }
         }
-      } catch (_) {
+      } on ArgumentError catch (_) {
         appendToList(editor, parentKeys, item);
       }
     } else if (item is String || item is int) {
