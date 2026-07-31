@@ -145,7 +145,13 @@ class ScheduleEditorService {
       valueCheck: ScheduleItem.itemWithoutTitle,
     );
     updateKeyValue(editor, keys, 'category', it.category);
-    updateKeyValue(editor, keys, 'description', it.description);
+    updateKeyValue(
+      editor,
+      keys,
+      'description',
+      it.description,
+      scalarStyle: ScalarStyle.LITERAL,
+    );
     updateKeyValue(editor, keys, 'time', it.durationMin);
     updateKeyValue(editor, keys, 'reps', it.reps);
     updateKeyValue(editor, keys, 'setsAndReps', it.setsAndReps);
@@ -181,7 +187,13 @@ class ScheduleEditorService {
       updateKeyValue(editor, keys, 'timeStart', slot.timeStart);
       updateKeyValue(editor, keys, 'timeEnd', slot.timeEnd);
     }
-    updateKeyValue(editor, keys, 'description', slot.description);
+    updateKeyValue(
+      editor,
+      keys,
+      'description',
+      slot.description,
+      scalarStyle: ScalarStyle.LITERAL,
+    );
   }
 
   int updatePrimitiveToList<T>(
@@ -230,6 +242,7 @@ class ScheduleEditorService {
     T key,
     dynamic value, {
     dynamic valueCheck,
+    ScalarStyle? scalarStyle,
   }) {
     final newKeys = [...keys, key];
     if (value != valueCheck) {
@@ -237,7 +250,11 @@ class ScheduleEditorService {
         final current = editor.parseAt(newKeys).value;
         if ('$current' == '$value') return;
       } catch (_) {}
-      editor.update(newKeys, value);
+      if (scalarStyle == null) {
+        editor.update(newKeys, value);
+      } else {
+        editor.update(newKeys, wrapAsYamlNode(value, scalarStyle: scalarStyle));
+      }
     } else {
       try {
         editor.remove(newKeys);
