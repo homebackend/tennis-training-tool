@@ -10,6 +10,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_common/app_logger.dart';
 import 'package:flutter_common/tool.dart';
 
 import '../mixins/schedule_common.dart';
@@ -256,20 +257,27 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
   void _markDirty() => setState(() => _dirty = true);
 
   Future<void> _save() async {
-    final yaml = await _service.toYaml(start, weeks, items);
-    if (mounted) {
-      final shouldSave = await showYamlDiffDialog(
-        context,
-        existingYaml: widget.initialYaml ?? '',
-        newYaml: yaml,
-      );
+    try {
+      final yaml = await _service.toYaml(start, weeks, items);
+      if (mounted) {
+        final shouldSave = await showYamlDiffDialog(
+          context,
+          existingYaml: widget.initialYaml ?? '',
+          newYaml: yaml,
+        );
 
-      if (shouldSave) {
-        widget.onSave(yaml);
-        setState(() => _dirty = false);
-        if (mounted) {
-          Navigator.pop(context);
+        if (shouldSave) {
+          widget.onSave(yaml);
+          setState(() => _dirty = false);
+          if (mounted) {
+            Navigator.pop(context);
+          }
         }
+      }
+    } catch (e) {
+      appLogger.e('Error: during schedule yaml generation: $e');
+      if (mounted) {
+        showErrorDialog(context, 'Schedule yaml generation failed: $e');
       }
     }
   }
@@ -350,10 +358,24 @@ class _ItemCardState extends State<_ItemCard> with ScheduleCommon {
         ),
         subtitle: Column(
           children: [
-            if (_item.category != null)
-              Text(
-                _item.category!,
-                style: TextStyle(decoration: TextDecoration.underline),
+            if (_item.category != null || _item.children.isNotEmpty)
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: BouncingScrollPhysics(),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_item.category != null)
+                      Text(
+                        _item.category!,
+                        style: TextStyle(decoration: TextDecoration.underline),
+                      ),
+                    if (_item.children.isNotEmpty)
+                      Text('${_item.children.length} child entries')
+                    else
+                      Text('No child entries'),
+                  ].expand((e) => [e, Text(' / ')]).toList()..removeLast(),
+                ),
               ),
             if (_item.actualSlots().isEmpty) Text('No slots configured'),
             if (_item.actualSlots().isNotEmpty)
@@ -394,7 +416,7 @@ class _ItemCardState extends State<_ItemCard> with ScheduleCommon {
                     ),
                   );
                   if (r != null) {
-                    r.index = _item.children.length - 1;
+                    r.index = _item.children.length;
                     addSlotKeysIfMissing(r, r.slots);
                     _update(
                       _item
