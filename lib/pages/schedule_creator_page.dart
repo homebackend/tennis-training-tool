@@ -23,8 +23,8 @@ mixin ScheduleItemManager {
   void swapItems(List<ScheduleItem> items, int src, int dest) {
     final srcItem = items[src];
     final destItem = items[dest];
-    srcItem.swapped = true;
-    destItem.swapped = true;
+    srcItem.shift += dest - src;
+    destItem.shift += src - dest;
     srcItem.index = dest;
     destItem.index = src;
     items[src] = destItem;
@@ -204,7 +204,7 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
                   for (int i = e.key; i < items.length; i++) {
                     final item = items[i];
                     item.index--;
-                    item.changed = true;
+                    item.shift--;
                   }
                 },
                 onSwap: (src, dest) {
@@ -530,7 +530,7 @@ class _ItemCardState extends State<_ItemCard>
                   for (int i = e.key; i < _item.children.length; i++) {
                     final item = _item.children[i];
                     item.index--;
-                    item.changed = true;
+                    item.shift--;
                   }
                   _update(_item..changed = true);
                 },

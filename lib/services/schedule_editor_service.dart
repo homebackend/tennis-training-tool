@@ -100,16 +100,16 @@ class ScheduleEditorService {
         editor.parseAt(newkeys);
         matched = true;
         if (item is ScheduleItem) {
-          if (!item.changed && !item.swapped) {
+          if (!item.hasChanged) {
             return matched;
           }
           if (item.isScalar) {
             updateKeyValue(editor, parentKeys, i, item.title);
           } else {
-            if (item.swapped) {
-              editor.update(newkeys, itemToYaml(item));
-            } else {
+            if (item.changed) {
               updateScheduleItem(editor, newkeys, item);
+            } else {
+              editor.update(newkeys, itemToYaml(item));
             }
           }
         } else if (item is ScheduleSlot) {
