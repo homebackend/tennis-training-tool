@@ -385,7 +385,13 @@ class _ItemCardState extends State<_ItemCard>
         ),
         subtitle: Column(
           children: [
-            if (_item.category != null || _item.children.isNotEmpty)
+            if ([
+              _item.category,
+              _item.children.isNotEmpty,
+              _item.reps,
+              _item.setsAndReps,
+              _item.durationMin,
+            ].any((v) => v != null || _item.links.isNotEmpty))
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: BouncingScrollPhysics(),
@@ -397,6 +403,13 @@ class _ItemCardState extends State<_ItemCard>
                         _item.category!,
                         style: TextStyle(decoration: TextDecoration.underline),
                       ),
+                    if (_item.reps != null) Text('${_item.reps} reps'),
+                    if (_item.setsAndReps != null)
+                      Text('sets & reps: ${_item.setsAndReps}'),
+                    if (_item.durationMin != null)
+                      Text('${_item.durationMin} m'),
+                    if (_item.links.isNotEmpty)
+                      Text('${_item.links.length} links'),
                     if (_item.children.isNotEmpty)
                       Text('${_item.children.length} child entries')
                     else
@@ -404,6 +417,7 @@ class _ItemCardState extends State<_ItemCard>
                   ].expand((e) => [e, Text(' / ')]).toList()..removeLast(),
                 ),
               ),
+            //if (_item.description != null) Text(_item.description!),
             if (_item.actualSlots().isEmpty) Text('No slots configured'),
             if (_item.actualSlots().isNotEmpty)
               ..._item.actualSlots().map((s) => Text(slotTitle(s))),
