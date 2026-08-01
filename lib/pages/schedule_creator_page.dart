@@ -19,6 +19,19 @@ import '../models/schedule.dart';
 import '../services/schedule_editor_service.dart';
 import '../services/schedule_parser_service.dart';
 
+mixin ScheduleItemManager {
+  void swapItems(List<ScheduleItem> items, int src, int dest) {
+    final srcItem = items[src];
+    final destItem = items[dest];
+    srcItem.shift += dest - src;
+    destItem.shift += src - dest;
+    srcItem.index = dest;
+    destItem.index = src;
+    items[src] = destItem;
+    items[dest] = srcItem;
+  }
+}
+
 class ScheduleCreatorPage extends StatefulWidget {
   final void Function(String yaml) onSave;
   final String? initialYaml;
@@ -33,7 +46,7 @@ class ScheduleCreatorPage extends StatefulWidget {
 }
 
 class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
-    with YamlDiffDeviation {
+    with YamlDiffDeviation, ScheduleItemManager {
   bool _dirty = false;
   final _parser = ScheduleParser();
   late ScheduleEditorService _service;
@@ -177,6 +190,8 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
               (e) => _ItemCard(
                 key: ValueKey(e.value),
                 item: e.value,
+                position: e.key,
+                length: items.length,
                 maxWeeks: weeks,
                 audioMap: _audioMap,
                 onChanged: (u) {
@@ -189,8 +204,13 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
                   for (int i = e.key; i < items.length; i++) {
                     final item = items[i];
                     item.index--;
-                    item.changed = true;
+                    item.shift--;
                   }
+                },
+                onSwap: (src, dest) {
+                  _markDirty();
+                  swapItems(items, src, dest);
+                  setState(() {});
                 },
               ),
             ),
@@ -286,16 +306,22 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
 class _ItemCard extends StatefulWidget {
   final ScheduleItem? parent;
   final ScheduleItem item;
+  final int position;
+  final int length;
   final ValueChanged<ScheduleItem> onChanged;
   final VoidCallback onDelete;
+  final void Function(int src, int dest) onSwap;
   final int maxWeeks;
   final List<Map<String, dynamic>> audioMap;
   const _ItemCard({
     super.key,
     this.parent,
     required this.item,
+    required this.position,
+    required this.length,
     required this.onChanged,
     required this.onDelete,
+    required this.onSwap,
     required this.maxWeeks,
     required this.audioMap,
   });
@@ -304,7 +330,8 @@ class _ItemCard extends StatefulWidget {
   State<_ItemCard> createState() => _ItemCardState();
 }
 
-class _ItemCardState extends State<_ItemCard> with ScheduleCommon {
+class _ItemCardState extends State<_ItemCard>
+    with ScheduleCommon, ScheduleItemManager {
   late ScheduleItem _item;
 
   @override
@@ -462,6 +489,20 @@ class _ItemCardState extends State<_ItemCard> with ScheduleCommon {
                 onPressed: widget.onDelete,
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
               ),
+              if (widget.position != 0)
+                TextButton.icon(
+                  icon: const Icon(Icons.move_up, size: 18),
+                  label: const Text('Move Up'),
+                  onPressed: () =>
+                      widget.onSwap(widget.position, widget.position - 1),
+                ),
+              if (widget.position + 1 != widget.length)
+                TextButton.icon(
+                  icon: const Icon(Icons.move_down, size: 18),
+                  label: const Text('Move Down'),
+                  onPressed: () =>
+                      widget.onSwap(widget.position, widget.position + 1),
+                ),
             ],
           ),
           ..._item.children.asMap().entries.map(
@@ -470,6 +511,8 @@ class _ItemCardState extends State<_ItemCard> with ScheduleCommon {
               child: _ItemCard(
                 key: ValueKey(e.value),
                 item: e.value,
+                position: e.key,
+                length: _item.children.length,
                 parent: widget.item,
                 maxWeeks: widget.maxWeeks,
                 audioMap: widget.audioMap,
@@ -487,8 +530,12 @@ class _ItemCardState extends State<_ItemCard> with ScheduleCommon {
                   for (int i = e.key; i < _item.children.length; i++) {
                     final item = _item.children[i];
                     item.index--;
-                    item.changed = true;
+                    item.shift--;
                   }
+                  _update(_item..changed = true);
+                },
+                onSwap: (src, dest) {
+                  swapItems(_item.children, src, dest);
                   _update(_item..changed = true);
                 },
               ),

@@ -57,7 +57,7 @@ class ScheduleEditorService {
       if (node is! List) {
         editor.update(parentKeys, [node]);
       }
-    } catch (e) {
+    } on ArgumentError catch (_) {
       editor.update(parentKeys, []);
     }
 
@@ -100,13 +100,17 @@ class ScheduleEditorService {
         editor.parseAt(newkeys);
         matched = true;
         if (item is ScheduleItem) {
-          if (!item.changed) {
+          if (!item.hasChanged) {
             return matched;
           }
           if (item.isScalar) {
             updateKeyValue(editor, parentKeys, i, item.title);
           } else {
-            updateScheduleItem(editor, newkeys, item);
+            if (item.changed) {
+              updateScheduleItem(editor, newkeys, item);
+            } else {
+              editor.update(newkeys, itemToYaml(item));
+            }
           }
         } else if (item is ScheduleSlot) {
           if (item.changed) {
@@ -145,7 +149,13 @@ class ScheduleEditorService {
       valueCheck: ScheduleItem.itemWithoutTitle,
     );
     updateKeyValue(editor, keys, 'category', it.category);
-    updateKeyValue(editor, keys, 'description', it.description);
+    updateKeyValue(
+      editor,
+      keys,
+      'description',
+      it.description,
+      scalarStyle: ScalarStyle.LITERAL,
+    );
     updateKeyValue(editor, keys, 'time', it.durationMin);
     updateKeyValue(editor, keys, 'reps', it.reps);
     updateKeyValue(editor, keys, 'setsAndReps', it.setsAndReps);
@@ -181,7 +191,13 @@ class ScheduleEditorService {
       updateKeyValue(editor, keys, 'timeStart', slot.timeStart);
       updateKeyValue(editor, keys, 'timeEnd', slot.timeEnd);
     }
-    updateKeyValue(editor, keys, 'description', slot.description);
+    updateKeyValue(
+      editor,
+      keys,
+      'description',
+      slot.description,
+      scalarStyle: ScalarStyle.LITERAL,
+    );
   }
 
   int updatePrimitiveToList<T>(
@@ -230,14 +246,19 @@ class ScheduleEditorService {
     T key,
     dynamic value, {
     dynamic valueCheck,
+    ScalarStyle? scalarStyle,
   }) {
     final newKeys = [...keys, key];
     if (value != valueCheck) {
       try {
         final current = editor.parseAt(newKeys).value;
         if ('$current' == '$value') return;
-      } catch (_) {}
-      editor.update(newKeys, value);
+      } on ArgumentError catch (_) {}
+      if (scalarStyle == null) {
+        editor.update(newKeys, value);
+      } else {
+        editor.update(newKeys, wrapAsYamlNode(value, scalarStyle: scalarStyle));
+      }
     } else {
       try {
         editor.remove(newKeys);
