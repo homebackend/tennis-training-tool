@@ -19,6 +19,7 @@ class ScheduleItem {
   final String? description;
   bool enabled;
   bool changed;
+  bool swapped;
   final bool isScalar;
   final bool slotsAsArray;
   final bool hasSlots;
@@ -29,7 +30,6 @@ class ScheduleItem {
   final List<String> links;
   final String? audio;
   final String? setsAndReps;
-  //final List<dynamic> keys;
   int index;
 
   ScheduleItem({
@@ -39,6 +39,7 @@ class ScheduleItem {
     this.slots = const [],
     this.enabled = true,
     this.changed = false,
+    this.swapped = false,
     this.isScalar = false,
     this.slotsAsArray = false,
     this.hasSlots = false,

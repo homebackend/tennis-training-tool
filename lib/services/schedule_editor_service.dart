@@ -57,7 +57,7 @@ class ScheduleEditorService {
       if (node is! List) {
         editor.update(parentKeys, [node]);
       }
-    } catch (e) {
+    } on ArgumentError catch (_) {
       editor.update(parentKeys, []);
     }
 
@@ -100,13 +100,17 @@ class ScheduleEditorService {
         editor.parseAt(newkeys);
         matched = true;
         if (item is ScheduleItem) {
-          if (!item.changed) {
+          if (!item.changed && !item.swapped) {
             return matched;
           }
           if (item.isScalar) {
             updateKeyValue(editor, parentKeys, i, item.title);
           } else {
-            updateScheduleItem(editor, newkeys, item);
+            if (item.swapped) {
+              editor.update(newkeys, itemToYaml(item));
+            } else {
+              updateScheduleItem(editor, newkeys, item);
+            }
           }
         } else if (item is ScheduleSlot) {
           if (item.changed) {
@@ -249,7 +253,7 @@ class ScheduleEditorService {
       try {
         final current = editor.parseAt(newKeys).value;
         if ('$current' == '$value') return;
-      } catch (_) {}
+      } on ArgumentError catch (_) {}
       if (scalarStyle == null) {
         editor.update(newKeys, value);
       } else {
