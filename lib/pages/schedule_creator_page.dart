@@ -1031,7 +1031,7 @@ class _SlotPickerState extends State<_SlotPicker>
                 style: Theme.of(context).textTheme.labelLarge,
               ),
             ),
-            ...createSlotRows(widget.parent!.slots, editable: false),
+            ...createSlotRows(widget.parentOfParent!.slots, editable: false),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               physics: BouncingScrollPhysics(),
@@ -1186,30 +1186,40 @@ mixin SlotCommon implements ScheduleCommon {
     List<ScheduleSlot> slots, {
     bool editable = true,
   }) => slots
-      .where((s) => !s.inherited)
       .toList()
       .asMap()
       .entries
       .map(
         (e) => ListTile(
           dense: true,
-          title: Text(slotTitle(e.value)),
+          title: Text(
+            slotTitle(e.value),
+            style: e.value.inherited
+                ? TextStyle(fontStyle: FontStyle.italic)
+                : null,
+          ),
           trailing: editable
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, size: 18),
-                      onPressed: () => _editSlot(e.key),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 18),
-                      onPressed: () => _deleteSlot(e.key),
-                    ),
-                  ],
-                )
+              ? !e.value.inherited
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit, size: 18),
+                            onPressed: () => _editSlot(e.key),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            onPressed: () => _deleteSlot(e.key),
+                          ),
+                        ],
+                      )
+                    : Tooltip(
+                        message:
+                            'This is inherited from parent, hence not editable',
+                        child: Icon(Icons.edit_off),
+                      )
               : null,
-          onTap: editable ? () => _editSlot(e.key) : null,
+          onTap: editable && !e.value.inherited ? () => _editSlot(e.key) : null,
         ),
       )
       .toList();
