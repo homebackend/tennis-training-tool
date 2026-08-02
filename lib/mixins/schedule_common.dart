@@ -196,7 +196,7 @@ mixin ScheduleCommon {
   }
 
   String slotTitle(ScheduleSlot s) =>
-      'W:${_c(s.weeks)} • ${_days(s.days)} • ${s.timeStart}-${s.timeEnd}';
+      'W:${_c(s.weeks)} • ${_days(s.days)} • ${s.hasTime ? '${s.timeStart}-${s.timeEnd}' : 'Time span will be inherited'}';
 
   String _days(List<int> d) =>
       d.map((e) => ScheduleCommon.weekNames[e]).join(',');

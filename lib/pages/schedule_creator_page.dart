@@ -998,6 +998,7 @@ class _SlotPickerState extends State<_SlotPicker>
     with SlotCommon, ScheduleCommon {
   late Set<int> weeks;
   late Set<int> days;
+  late bool hasTime;
   late TimeOfDay start;
   late TimeOfDay end;
   String? _error;
@@ -1007,6 +1008,7 @@ class _SlotPickerState extends State<_SlotPicker>
     super.initState();
     weeks = Set.from(widget.slot?.weeks ?? [1]);
     days = Set.from(widget.slot?.days ?? [1, 2, 3, 4, 5]);
+    hasTime = widget.slot?.hasTime ?? false;
     start = _p(widget.slot?.timeStart ?? '09:00');
     end = _p(widget.slot?.timeEnd ?? '10:00');
   }
@@ -1015,6 +1017,22 @@ class _SlotPickerState extends State<_SlotPicker>
     hour: int.parse(t.split(':')[0]),
     minute: int.parse(t.split(':')[1]),
   );
+
+  @override
+  void _copySlot(int idx) {
+    if (widget.parent == null) return;
+
+    final slot = widget.parent!.slots[idx];
+    setState(() {
+      weeks = slot.weeks.toSet();
+      days = slot.days.toSet();
+      hasTime = slot.hasTime;
+      if (hasTime) {
+        start = _p(slot.timeStart);
+        end = _p(slot.timeEnd);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) => AlertDialog(
@@ -1031,7 +1049,11 @@ class _SlotPickerState extends State<_SlotPicker>
                 style: Theme.of(context).textTheme.labelLarge,
               ),
             ),
-            ...createSlotRows(widget.parentOfParent!.slots, editable: false),
+            ...createSlotRows(
+              widget.parent!.slots,
+              editable: false,
+              copyable: true,
+            ),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               physics: BouncingScrollPhysics(),
@@ -1066,28 +1088,37 @@ class _SlotPickerState extends State<_SlotPicker>
               );
             }).toList(),
           ),
-          ListTile(
-            title: Text('Start: ${start.format(context)}'),
-            trailing: const Icon(Icons.access_time),
-            onTap: () async {
-              final t = await showTimePicker(
-                context: context,
-                initialTime: start,
-              );
-              if (t != null) setState(() => start = t);
-            },
+          CheckboxListTile(
+            title: const Text('Has time: Time will be inherited from parent'),
+            value: hasTime,
+            onChanged: (v) => setState(() => hasTime = v ?? false),
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
           ),
-          ListTile(
-            title: Text('End: ${end.format(context)}'),
-            trailing: const Icon(Icons.access_time),
-            onTap: () async {
-              final t = await showTimePicker(
-                context: context,
-                initialTime: end,
-              );
-              if (t != null) setState(() => end = t);
-            },
-          ),
+          if (hasTime) ...[
+            ListTile(
+              title: Text('Start: ${start.format(context)}'),
+              trailing: const Icon(Icons.access_time),
+              onTap: () async {
+                final t = await showTimePicker(
+                  context: context,
+                  initialTime: start,
+                );
+                if (t != null) setState(() => start = t);
+              },
+            ),
+            ListTile(
+              title: Text('End: ${end.format(context)}'),
+              trailing: const Icon(Icons.access_time),
+              onTap: () async {
+                final t = await showTimePicker(
+                  context: context,
+                  initialTime: end,
+                );
+                if (t != null) setState(() => end = t);
+              },
+            ),
+          ],
           if (_error != null)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -1117,16 +1148,6 @@ class _SlotPickerState extends State<_SlotPicker>
         '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
     final ts = f(start);
     final te = f(end);
-    bool hasTime = false;
-    if (widget.slot == null) {
-      hasTime = ts.isNotEmpty && te.isNotEmpty;
-    } else {
-      if (ts == widget.slot!.timeStart && te == widget.slot!.timeEnd) {
-        hasTime = widget.slot!.hasTime;
-      } else {
-        hasTime = true;
-      }
-    }
     final newSlot = ScheduleSlot(
       weeks.toList()..sort(),
       days.toList()..sort(),
@@ -1181,10 +1202,12 @@ mixin SlotCommon implements ScheduleCommon {
   void setState(VoidCallback fn);
   void _editSlot(int? idx) async {}
   void _deleteSlot(int idx) async {}
+  void _copySlot(int idx) async {}
 
   List<Widget> createSlotRows(
     List<ScheduleSlot> slots, {
     bool editable = true,
+    bool copyable = false,
   }) => slots
       .toList()
       .asMap()
@@ -1198,7 +1221,15 @@ mixin SlotCommon implements ScheduleCommon {
                 ? TextStyle(fontStyle: FontStyle.italic)
                 : null,
           ),
-          trailing: editable
+          trailing: copyable
+              ? Tooltip(
+                  message: 'Assign this parent slot\'s value to slot',
+                  child: IconButton(
+                    icon: const Icon(Icons.copy, size: 18),
+                    onPressed: () => _copySlot(e.key),
+                  ),
+                )
+              : editable
               ? !e.value.inherited
                     ? Row(
                         mainAxisSize: MainAxisSize.min,
