@@ -291,7 +291,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
       'drill' => Icons.sports_tennis_outlined,
       'exercise' => Icons.directions_run_outlined,
       'rest' => Icons.bedtime_outlined,
-      _ => Icons.task_alt_outlined,
+      _ => depth == 0 ? Icons.task_alt_outlined : null,
     };
     final subtitle =
         '${slot.timeStart != slot.timeEnd ? '${_fmt(slot.timeStart)} - ${_fmt(slot.timeEnd)}' : _fmt(slot.timeStart)}'
@@ -360,18 +360,23 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
               )
             : null,
         child: ListTile(
-          contentPadding: EdgeInsets.only(left: 16 + depth * 16.0, right: 16),
-          leading: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isLive)
-                const Icon(Icons.circle, size: 10, color: Colors.green),
-              Icon(
-                icon,
-                color: isLive ? Theme.of(context).colorScheme.primary : null,
-              ),
-            ],
-          ),
+          contentPadding: EdgeInsets.only(left: 16 + depth * 8.0, right: 16),
+          leading: (!isLive && icon == null)
+              ? null
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isLive)
+                      const Icon(Icons.circle, size: 10, color: Colors.green),
+                    if (icon != null)
+                      Icon(
+                        icon,
+                        color: isLive
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                  ],
+                ),
           title: Text(
             item.title,
             maxLines: 3,
@@ -434,10 +439,13 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
                       shape: BoxShape.circle,
                     ),
                   ),
-                Icon(
-                  icon,
-                  color: isLive ? Theme.of(context).colorScheme.primary : null,
-                ),
+                if (icon != null)
+                  Icon(
+                    icon,
+                    color: isLive
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
                 SizedBox(width: 10),
                 Text(
                   item.title,
