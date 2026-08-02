@@ -52,13 +52,28 @@ class ScheduleEditorService {
       return;
     }
 
+    bool tempAdded = false;
+
     try {
       final node = editor.parseAt(parentKeys).value;
       if (node is! List) {
         editor.update(parentKeys, [node]);
       }
     } on ArgumentError catch (_) {
-      editor.update(parentKeys, []);
+      if (items[0] is ScheduleItem || items[0] is ScheduleSlot) {
+        tempAdded = true;
+        editor.update(parentKeys, [
+          {'__temp__': ''},
+        ]);
+      } else if (items[0] is String) {
+        editor.update(parentKeys, ['']);
+      } else if (items[0] is int) {
+        editor.update(parentKeys, [0]);
+      } else {
+        throw Exception(
+          'Support for ${items[0].runtimeType} is not implemented',
+        );
+      }
     }
 
     final currentItems = editor.parseAt(parentKeys).value;
@@ -69,6 +84,12 @@ class ScheduleEditorService {
       if (updateItem(editor, parentKeys, items[i], i)) {
         matchedIndexes.add(i);
       }
+    }
+
+    if (tempAdded) {
+      try {
+        editor.remove([...parentKeys, 0, '__temp__']);
+      } catch (_) {}
     }
 
     // Now remove all existing items not present in current items
@@ -140,6 +161,10 @@ class ScheduleEditorService {
   ) {
     if (!it.enabled) {
       editor.update([...keys, 'enabled'], it.enabled);
+    } else {
+      try {
+        editor.remove([...keys, 'enabled']);
+      } catch (_) {}
     }
     updateKeyValue(
       editor,
