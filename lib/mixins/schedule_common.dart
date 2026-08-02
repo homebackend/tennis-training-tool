@@ -27,7 +27,12 @@ mixin ScheduleCommon {
     7: 'Sun',
   };
 
-  String? validateTimeSlotsAgainstParent({
+  // Validate if a time slot is valid against
+  // its parent. This handles validation during
+  // addition of a time slot to child. It makes
+  // sure that the new time slot lies within
+  // the bounds set by parent.
+  String? validateTimeSlotAgainstParent({
     required List<int> weeks,
     required List<int> days,
     required bool hasTime,
@@ -50,6 +55,8 @@ mixin ScheduleCommon {
     }
   }
 
+  // This function validates if deletion of a particular
+  // time slot will impact its children adversely.
   String? validateChildrenTimeSlotsPostDeletion({
     required ScheduleItem parent,
     required int deletedIndex,
@@ -92,6 +99,26 @@ mixin ScheduleCommon {
           return '${e.message} which is required by child "${child.title}"';
         }
       }
+    }
+
+    return null;
+  }
+
+  String? validateTimeSlotsAgainstParent({
+    required ScheduleItem parent,
+    required List<ScheduleSlot> slots,
+  }) {
+    for (final s in slots) {
+      String? error = validateTimeSlotAgainstParent(
+        weeks: s.weeks,
+        days: s.days,
+        hasTime: s.hasTime,
+        ts: s.timeStart,
+        te: s.timeEnd,
+        parent: parent,
+      );
+
+      if (error != null) return error;
     }
 
     return null;
