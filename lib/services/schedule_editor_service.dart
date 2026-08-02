@@ -150,6 +150,10 @@ class ScheduleEditorService {
   ) {
     if (!it.enabled) {
       editor.update([...keys, 'enabled'], it.enabled);
+    } else {
+      try {
+        editor.remove([...keys, 'enabled']);
+      } catch (_) {}
     }
     updateKeyValue(
       editor,
