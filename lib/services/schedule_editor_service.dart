@@ -52,6 +52,8 @@ class ScheduleEditorService {
       return;
     }
 
+    bool tempAdded = false;
+
     try {
       final node = editor.parseAt(parentKeys).value;
       if (node is! List) {
@@ -59,7 +61,10 @@ class ScheduleEditorService {
       }
     } on ArgumentError catch (_) {
       if (items[0] is ScheduleItem || items[0] is ScheduleSlot) {
-        editor.update(parentKeys, [{}]);
+        tempAdded = true;
+        editor.update(parentKeys, [
+          {'__temp__': ''},
+        ]);
       } else if (items[0] is String) {
         editor.update(parentKeys, ['']);
       } else if (items[0] is int) {
@@ -79,6 +84,12 @@ class ScheduleEditorService {
       if (updateItem(editor, parentKeys, items[i], i)) {
         matchedIndexes.add(i);
       }
+    }
+
+    if (tempAdded) {
+      try {
+        editor.remove([...parentKeys, 0, '__temp__']);
+      } catch (_) {}
     }
 
     // Now remove all existing items not present in current items
