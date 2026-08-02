@@ -58,7 +58,17 @@ class ScheduleEditorService {
         editor.update(parentKeys, [node]);
       }
     } on ArgumentError catch (_) {
-      editor.update(parentKeys, []);
+      if (items[0] is ScheduleItem || items[0] is ScheduleSlot) {
+        editor.update(parentKeys, [{}]);
+      } else if (items[0] is String) {
+        editor.update(parentKeys, ['']);
+      } else if (items[0] is int) {
+        editor.update(parentKeys, [0]);
+      } else {
+        throw Exception(
+          'Support for ${items[0].runtimeType} is not implemented',
+        );
+      }
     }
 
     final currentItems = editor.parseAt(parentKeys).value;
