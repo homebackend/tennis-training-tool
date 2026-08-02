@@ -19,7 +19,7 @@ import '../models/schedule.dart';
 import '../services/schedule_editor_service.dart';
 import '../services/schedule_parser_service.dart';
 
-mixin ScheduleItemManager {
+mixin ScheduleItemManager implements ScheduleCommon {
   void swapItems(List<ScheduleItem> items, int src, int dest) {
     final srcItem = items[src];
     final destItem = items[dest];
@@ -29,6 +29,51 @@ mixin ScheduleItemManager {
     destItem.index = src;
     items[src] = destItem;
     items[dest] = srcItem;
+  }
+
+  void handleDeletion(List<ScheduleItem> items, int start) {
+    for (int i = start; i < items.length; i++) {
+      final item = items[i];
+      item.index--;
+      item.shift--;
+    }
+  }
+
+  void handleNesting(
+    BuildContext context,
+    List<ScheduleItem> items,
+    int src,
+    int dest,
+    ScheduleItem Function() onDelete,
+  ) {
+    if (dest < 0 || dest > items.length || dest == src) {
+      return;
+    }
+
+    final item = items[src];
+    final destItem = items[dest];
+
+    final error = validateTimeSlotsAgainstParent(
+      parent: destItem,
+      slots: item.actualSlots(),
+    );
+
+    if (error != null) {
+      showErrorDialog(
+        context,
+        'Nesting is not allowed for "${item.title}" as timeslots '
+        'for "${destItem.title}" are incompatible. '
+        'The erring timeslot: $error.',
+      );
+      return;
+    }
+
+    item.index = destItem.children.length;
+    item.shift = 0;
+    item.changed = true;
+    destItem.children.add(item);
+    destItem.changed = true;
+    onDelete();
   }
 }
 
@@ -46,7 +91,7 @@ class ScheduleCreatorPage extends StatefulWidget {
 }
 
 class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
-    with YamlDiffDeviation, ScheduleItemManager {
+    with YamlDiffDeviation, ScheduleCommon, ScheduleItemManager {
   bool _dirty = false;
   final _parser = ScheduleParser();
   late ScheduleEditorService _service;
@@ -186,8 +231,16 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
                 ),
               ],
             ),
-            ...items.asMap().entries.map(
-              (e) => _ItemCard(
+            ...items.asMap().entries.map((e) {
+              ScheduleItem onDelete() {
+                _markDirty();
+                final deletedItem = items.removeAt(e.key);
+                setState(() {});
+                handleDeletion(items, e.key);
+                return deletedItem;
+              }
+
+              return _ItemCard(
                 key: ValueKey(e.value),
                 item: e.value,
                 position: e.key,
@@ -198,22 +251,23 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
                   _markDirty();
                   setState(() => items[e.key] = u);
                 },
-                onDelete: () {
-                  _markDirty();
-                  setState(() => items.removeAt(e.key));
-                  for (int i = e.key; i < items.length; i++) {
-                    final item = items[i];
-                    item.index--;
-                    item.shift--;
-                  }
-                },
+                onDelete: onDelete,
                 onSwap: (src, dest) {
                   _markDirty();
                   swapItems(items, src, dest);
                   setState(() {});
                 },
-              ),
-            ),
+                onOutdentParent: (ScheduleItem item) {
+                  _markDirty();
+                  item.changed = true;
+                  item.shift = 0;
+                  item.index = items.length;
+                  setState(() => items.add(item));
+                },
+                onNest: (dest) =>
+                    handleNesting(context, items, e.key, dest, onDelete),
+              );
+            }),
             if (items.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(32),
@@ -311,17 +365,23 @@ class _ItemCard extends StatefulWidget {
   final ValueChanged<ScheduleItem> onChanged;
   final VoidCallback onDelete;
   final void Function(int src, int dest) onSwap;
+  final VoidCallback? onOutdent;
+  final void Function(ScheduleItem item) onOutdentParent;
+  final void Function(int dest) onNest;
   final int maxWeeks;
   final List<Map<String, dynamic>> audioMap;
   const _ItemCard({
     super.key,
     this.parent,
+    required this.onOutdentParent,
     required this.item,
     required this.position,
     required this.length,
     required this.onChanged,
     required this.onDelete,
     required this.onSwap,
+    required this.onNest,
+    this.onOutdent,
     required this.maxWeeks,
     required this.audioMap,
   });
@@ -385,7 +445,13 @@ class _ItemCardState extends State<_ItemCard>
         ),
         subtitle: Column(
           children: [
-            if (_item.category != null || _item.children.isNotEmpty)
+            if ([
+              _item.category,
+              _item.children.isNotEmpty,
+              _item.reps,
+              _item.setsAndReps,
+              _item.durationMin,
+            ].any((v) => v != null || _item.links.isNotEmpty))
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: BouncingScrollPhysics(),
@@ -397,6 +463,13 @@ class _ItemCardState extends State<_ItemCard>
                         _item.category!,
                         style: TextStyle(decoration: TextDecoration.underline),
                       ),
+                    if (_item.reps != null) Text('${_item.reps} reps'),
+                    if (_item.setsAndReps != null)
+                      Text('sets & reps: ${_item.setsAndReps}'),
+                    if (_item.durationMin != null)
+                      Text('${_item.durationMin} m'),
+                    if (_item.links.isNotEmpty)
+                      Text('${_item.links.length} links'),
                     if (_item.children.isNotEmpty)
                       Text('${_item.children.length} child entries')
                     else
@@ -404,6 +477,7 @@ class _ItemCardState extends State<_ItemCard>
                   ].expand((e) => [e, Text(' / ')]).toList()..removeLast(),
                 ),
               ),
+            //if (_item.description != null) Text(_item.description!),
             if (_item.actualSlots().isEmpty) Text('No slots configured'),
             if (_item.actualSlots().isNotEmpty)
               ..._item.actualSlots().map((s) => Text(slotTitle(s))),
@@ -489,24 +563,73 @@ class _ItemCardState extends State<_ItemCard>
                 onPressed: widget.onDelete,
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
               ),
+              if (widget.parent != null && widget.onOutdent != null)
+                Tooltip(
+                  message: 'Move to grandparent — grandparent becomes parent',
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.reply_rounded, size: 18),
+                    label: const Text('Outdent'),
+                    onPressed: () => widget.onOutdent!(),
+                  ),
+                ),
               if (widget.position != 0)
-                TextButton.icon(
-                  icon: const Icon(Icons.move_up, size: 18),
-                  label: const Text('Move Up'),
-                  onPressed: () =>
-                      widget.onSwap(widget.position, widget.position - 1),
+                Tooltip(
+                  message: 'Move up — swap position with previous sibling',
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.arrow_upward_rounded, size: 18),
+                    label: const Text('Up'),
+                    onPressed: () =>
+                        widget.onSwap(widget.position, widget.position - 1),
+                  ),
                 ),
               if (widget.position + 1 != widget.length)
-                TextButton.icon(
-                  icon: const Icon(Icons.move_down, size: 18),
-                  label: const Text('Move Down'),
-                  onPressed: () =>
-                      widget.onSwap(widget.position, widget.position + 1),
+                Tooltip(
+                  message: 'Move down — swap position with next sibling',
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.arrow_downward_rounded, size: 18),
+                    label: const Text('Down'),
+                    onPressed: () =>
+                        widget.onSwap(widget.position, widget.position + 1),
+                  ),
+                ),
+              if (widget.position != 0)
+                Tooltip(
+                  message:
+                      'Nest inside previous sibling — make item a child of the sibling above it',
+                  child: TextButton.icon(
+                    icon: Transform.scale(
+                      scaleX: -1,
+                      child: const Icon(Icons.reply_rounded),
+                    ),
+                    label: const Text('Nest Above'),
+                    onPressed: () => widget.onNest(widget.position - 1),
+                  ),
+                ),
+              if (widget.position + 1 != widget.length)
+                Tooltip(
+                  message:
+                      'Nest inside next sibling — make item a child of the sibling below it',
+                  child: TextButton.icon(
+                    icon: Transform.scale(
+                      scaleX: -1,
+                      scaleY: -1,
+                      child: const Icon(Icons.reply_rounded),
+                    ),
+                    label: const Text('Nest Below'),
+                    onPressed: () => widget.onNest(widget.position + 1),
+                  ),
                 ),
             ],
           ),
-          ..._item.children.asMap().entries.map(
-            (e) => Padding(
+          ..._item.children.asMap().entries.map((e) {
+            ScheduleItem onDelete() {
+              final deletedItem = _item.children.removeAt(e.key);
+              handleDeletion(_item.children, e.key);
+              _update(_item..changed = true);
+              return deletedItem;
+            }
+
+            return Padding(
               padding: const EdgeInsets.only(left: 24, right: 8, bottom: 8),
               child: _ItemCard(
                 key: ValueKey(e.value),
@@ -525,22 +648,31 @@ class _ItemCardState extends State<_ItemCard>
                   _item.changed = true;
                   _update(_item);
                 },
-                onDelete: () {
-                  _item.children.removeAt(e.key);
-                  for (int i = e.key; i < _item.children.length; i++) {
-                    final item = _item.children[i];
-                    item.index--;
-                    item.shift--;
-                  }
-                  _update(_item..changed = true);
-                },
+                onDelete: onDelete,
                 onSwap: (src, dest) {
                   swapItems(_item.children, src, dest);
                   _update(_item..changed = true);
                 },
+                onOutdent: () {
+                  final item = onDelete();
+                  widget.onOutdentParent(item);
+                },
+                onOutdentParent: (item) {
+                  item.changed = true;
+                  item.shift = 0;
+                  item.index = _item.children.length;
+                  setState(() => _item.children.add(item));
+                },
+                onNest: (dest) => handleNesting(
+                  context,
+                  _item.children,
+                  e.key,
+                  dest,
+                  onDelete,
+                ),
               ),
-            ),
-          ),
+            );
+          }),
         ],
       ),
     );
@@ -813,7 +945,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog>
       );
       if (error != null) {
         setState(() => _error = 'Deletion failed: $error');
-        showSnackBar(context, error);
+        showErrorDialog(context, error);
         return;
       }
     }
@@ -1009,7 +1141,7 @@ class _SlotPickerState extends State<_SlotPicker>
 
     if (widget.parentOfParent != null) {
       // Check if parent ScheduleItem allows this slot
-      final err = validateTimeSlotsAgainstParent(
+      final err = validateTimeSlotAgainstParent(
         weeks: weeks.toList(),
         days: days.toList(),
         hasTime: hasTime,
@@ -1019,7 +1151,7 @@ class _SlotPickerState extends State<_SlotPicker>
       );
       if (err != null) {
         setState(() => _error = 'Validation Error: $err');
-        showSnackBar(context, 'Validation Error: $err');
+        showErrorDialog(context, 'Validation Error: $err');
         return;
       }
     }
