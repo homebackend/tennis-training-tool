@@ -24,13 +24,22 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
     required this.kids,
   });
 
+  int _dateCompare(dynamic a, dynamic b) {
+    final String dateA = a is String
+        ? a
+        : a["Date"] ?? a["WeekStart"] ?? "0000-00-00";
+    final String dateB = b is String
+        ? b
+        : b["Date"] ?? b["WeekStart"] ?? "0000-00-00";
+    return dateA.compareTo(dateB);
+  }
+
   List<FlSpot> _getChartSpots(
     String sheetId,
     String columnId,
     String? kidId,
-    List<String> xAxisDates,
+    Map<String, double> xAxisDates,
   ) {
-    xAxisDates.clear();
     final records = biometrics
         .where(
           (b) =>
@@ -39,11 +48,7 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
         )
         .toList();
 
-    records.sort((a, b) {
-      final String dateA = a["Date"] ?? a["WeekStart"] ?? "0000-00-00";
-      final String dateB = b["Date"] ?? b["WeekStart"] ?? "0000-00-00";
-      return dateA.compareTo(dateB);
-    });
+    records.sort(_dateCompare);
 
     final List<FlSpot> spots = [];
     for (int i = 0; i < records.length; i++) {
@@ -60,20 +65,37 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
 
       final double? val = double.tryParse(rawValue?.toString() ?? "");
       if (val != null) {
-        spots.add(FlSpot(spots.length.toDouble(), val));
-        final String rawDate = row["Date"] ?? row["WeekStart"] ?? "";
-
-        String shortDate = rawDate;
-        if (rawDate.length >= 10) {
-          final String mm = rawDate.substring(5, 7);
-          final String dd = rawDate.substring(8, 10);
-          shortDate = "$dd-$mm";
+        final String date = row["Date"] ?? row["WeekStart"] ?? "";
+        double spotId = 1.0;
+        if (xAxisDates.containsKey(date)) {
+          spotId = xAxisDates[date]!;
+        } else {
+          if (xAxisDates.isNotEmpty) {
+            final dates = xAxisDates.keys.sorted(_dateCompare);
+            if (_dateCompare(date, date[0]) < 0) {
+              spotId = xAxisDates[date[0]]! / 2;
+            } else {
+              bool spotFound = false;
+              for (int i = 1; i < dates.length; i++) {
+                if (_dateCompare(date, dates[i]) < 0) {
+                  spotFound = true;
+                  spotId =
+                      (xAxisDates[dates[i - 1]]! + xAxisDates[dates[i]]!) / 2;
+                  break;
+                }
+              }
+              if (!spotFound) {
+                spotId = 1 + xAxisDates[dates[dates.length - 1]]!;
+              }
+            }
+          }
         }
-        xAxisDates.add(
-          shortDate.isNotEmpty ? shortDate : spots.length.toString(),
-        );
+
+        xAxisDates.putIfAbsent(date, () => spotId);
+        spots.add(FlSpot(spotId, val));
       }
     }
+
     return spots;
   }
 
@@ -94,7 +116,7 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
     required List<(String, String, String)> lines,
     bool useKidId = true,
   }) {
-    final List<String> dates = [];
+    final Map<String, double> dates = {};
     final rows = useKidId
         ? lines.map((l) => (l.$1, l.$2, l.$3, kidId)).toList()
         : lines
@@ -124,7 +146,7 @@ class AthleteAnalyticsDashboard extends StatelessWidget {
               showTitles: true,
               reservedSize: 45,
               getTitlesWidget: (value, meta) =>
-                  _buildAxisTitleWidget(value, dates),
+                  _buildAxisTitleWidget(value, dates.keys.sorted(_dateCompare)),
             ),
           ),
           fractionDigits: fractionDigits,
