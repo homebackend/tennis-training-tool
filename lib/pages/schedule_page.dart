@@ -14,15 +14,15 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tennis_training_tool/services/audio_service.dart';
-import 'package:tennis_training_tool/tool.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 
 import '../models/schedule.dart';
+import '../services/audio_service.dart';
 import '../services/schedule_parser_service.dart';
 import '../services/schedule_sync_service.dart';
 import '../services/tracker_sync_service.dart';
+import '../tool.dart';
 import 'schedule_creator_page.dart';
 
 class SchedulePage extends StatefulWidget {
@@ -58,7 +58,6 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
   late int _cycleWeeks;
   String _selectedCategory = 'all';
   bool _syncInProgress = false;
-
   late AudioPlayer _audioPlayer;
   String? _currentPlayingFile;
 
@@ -212,11 +211,6 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
     }
   }
 
-  Future<void> _openLink(String url) async {
-    final uri = Uri.parse(url);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
   List<ScheduleItem> _itemsForDay(DateTime day) {
     final weekNum = ((day.difference(_start).inDays ~/ 7) % _cycleWeeks) + 1;
     final dayNum = day.weekday;
@@ -250,253 +244,6 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
     return it.slots.firstWhere(
       (s) => s.weeks.contains(weekNum) && s.days.contains(dayNum),
       orElse: () => it.slots.first,
-    );
-  }
-
-  String _fmt(String hhmm) {
-    final p = hhmm.split(':');
-    return DateFormat(
-      'h:mm a',
-    ).format(DateTime(0, 1, 1, int.parse(p[0]), int.parse(p[1])));
-  }
-
-  Widget _buildNode(ScheduleItem item, int depth, bool parentLive) {
-    final children = item.children.where(_matchesDay).toList()
-      ..sort(
-        (a, b) => _slotForDay(a).timeStart.compareTo(_slotForDay(b).timeStart),
-      );
-
-    final slot = _slotForDay(item);
-    final isLive = parentLive || _isLive(item);
-
-    if (!parentLive && isLive) {
-      if (_currentItem != item.title) {
-        AudioNotifier.changeCurrentItem();
-      }
-
-      _currentItem = item.title;
-    }
-
-    final itemKey = depth == 0
-        ? _itemKeys.putIfAbsent(
-            item.id,
-            () => GlobalKey(debugLabel: '${item.title}-${item.id}'),
-          )
-        : null;
-    final icon = switch (item.category) {
-      'nutrition' => Icons.restaurant_menu_outlined,
-      'hydration' => Icons.water_drop_outlined,
-      'drill' => Icons.sports_tennis_outlined,
-      'exercise' => Icons.directions_run_outlined,
-      'rest' => Icons.bedtime_outlined,
-      _ => depth == 0 ? Icons.task_alt_outlined : null,
-    };
-    final subtitle =
-        '${slot.timeStart != slot.timeEnd ? '${_fmt(slot.timeStart)} - ${_fmt(slot.timeEnd)}' : _fmt(slot.timeStart)}'
-        '${item.description != null && !item.description!.contains('\n') ? ' • ${item.description}' : ''}'
-        '${slot.description != null && !slot.description!.contains('\n') ? ' • ${slot.description}' : ''}'
-        '${item.setsAndReps != null ? ' • ${item.setsAndReps}' : ''}'
-        '${item.reps != null ? ' • x${item.reps}' : ''}'
-        '${item.durationMin != null ? ' • ${item.durationMin} mins' : ''}';
-    final lines = [
-      ...(item.description ?? '').split('\n'),
-      ...(slot.description ?? '').split('\n'),
-    ].where((r) => r.isNotEmpty);
-
-    if (item.title == ScheduleItem.itemWithoutTitle ||
-        item.title.trim().isEmpty) {
-      return Column(
-        children: children.map((c) => _buildNode(c, depth, isLive)).toList(),
-      );
-    }
-
-    final linksIcons = [
-      if (item.audio != null)
-        IconButton(
-          icon: Icon(
-            item.audio == _currentPlayingFile && _audioPlayer.playing
-                ? Icons.pause_circle_filled
-                : Icons.play_circle_fill,
-            color: isLive ? Theme.of(context).colorScheme.primary : null,
-          ),
-          onPressed: () => _handleAudio(item),
-        ),
-      if (item.audio != null &&
-          item.audio == _currentPlayingFile &&
-          _audioPlayer.playing)
-        IconButton(
-          icon: Icon(
-            Icons.stop_circle_outlined,
-            color: isLive ? Theme.of(context).colorScheme.primary : null,
-          ),
-          onPressed: () {
-            _audioPlayer.stop();
-            _audioPlayer.seek(Duration.zero);
-          },
-        ),
-      for (final l in item.links)
-        IconButton(
-          icon: Icon(l.contains('youtu') ? Icons.ondemand_video : Icons.link),
-          onPressed: () => _openLink(l),
-        ),
-    ];
-
-    if (children.isEmpty) {
-      return Container(
-        key: itemKey,
-        decoration: isLive
-            ? BoxDecoration(
-                border: Border(
-                  left: BorderSide(
-                    color: Theme.of(context).colorScheme.primary,
-                    width: 4,
-                  ),
-                ),
-                color: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.07),
-              )
-            : null,
-        child: ListTile(
-          contentPadding: EdgeInsets.only(left: 16 + depth * 8.0, right: 16),
-          leading: (!isLive && icon == null)
-              ? null
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (isLive)
-                      const Icon(Icons.circle, size: 10, color: Colors.green),
-                    if (icon != null)
-                      Icon(
-                        icon,
-                        color: isLive
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
-                  ],
-                ),
-          title: Text(
-            item.title,
-            maxLines: 3,
-            style: TextStyle(fontWeight: isLive ? FontWeight.bold : null),
-          ),
-          subtitle: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(subtitle, style: const TextStyle(fontSize: 12)),
-              if (lines.length > 1)
-                ...lines.map(
-                  (l) => Text('✔ $l', style: const TextStyle(fontSize: 12)),
-                ),
-              if (linksIcons.length > 1)
-                Row(mainAxisSize: MainAxisSize.max, children: linksIcons),
-            ],
-          ),
-          trailing: linksIcons.length == 1
-              ? Row(mainAxisSize: MainAxisSize.min, children: linksIcons)
-              : null,
-        ),
-      );
-    }
-
-    return Container(
-      key: itemKey,
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        elevation: isLive ? 3 : 1,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: isLive
-              ? BorderSide(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 1.2,
-                )
-              : BorderSide.none,
-        ),
-        color: isLive
-            ? Theme.of(
-                context,
-              ).colorScheme.primaryContainer.withValues(alpha: 0.22)
-            : null,
-        child: ExpansionTile(
-          initiallyExpanded: isLive,
-          tilePadding: EdgeInsets.only(left: 16 + depth * 8.0, right: 16),
-          title: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: [
-                if (isLive)
-                  Container(
-                    width: 8,
-                    height: 8,
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: const BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                if (icon != null)
-                  Icon(
-                    icon,
-                    color: isLive
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
-                  ),
-                SizedBox(width: 10),
-                Text(
-                  item.title,
-                  style: TextStyle(
-                    fontWeight: depth == 0 ? FontWeight.bold : FontWeight.w600,
-                    color: isLive
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
-                  ),
-                ),
-                if (item.audio != null)
-                  IconButton(
-                    onPressed: () => _handleAudio(item),
-                    icon: Icon(
-                      item.audio == _currentPlayingFile && _audioPlayer.playing
-                          ? Icons.pause
-                          : Icons.play_arrow,
-                    ),
-                  ),
-                if (item.audio != null &&
-                    item.audio == _currentPlayingFile &&
-                    _audioPlayer.playing)
-                  IconButton(
-                    onPressed: () {
-                      _audioPlayer.stop();
-                      _audioPlayer.seek(Duration.zero);
-                    },
-                    icon: Icon(Icons.stop_circle_outlined),
-                  ),
-              ],
-            ),
-          ),
-          subtitle: Text(subtitle),
-          children: [
-            if (item.description != null)
-              Padding(
-                padding: EdgeInsets.only(
-                  left: 16 + depth * 8.0,
-                  right: 16,
-                  bottom: 4,
-                ),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    item.description!,
-                    style: const TextStyle(color: Colors.black54),
-                  ),
-                ),
-              ),
-            ...children.map((c) => _buildNode(c, depth + 1, isLive)),
-          ],
-        ),
-      ),
     );
   }
 
@@ -570,7 +317,20 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
           : ListView(
               controller: _scrollController,
               children: dayItems
-                  .mapIndexed((index, it) => _buildNode(it, 0, false))
+                  .mapIndexed(
+                    (index, it) => ScheduleNode(
+                      item: it,
+                      depth: 0,
+                      parentLive: false,
+                      isLive: _isLive,
+                      matchesDay: _matchesDay,
+                      slotForDay: _slotForDay,
+                      updateTitle: _updateTitle,
+                      getKey: _getKey,
+                      currentPlayingFile: () => _currentPlayingFile,
+                      handleAudio: _handleAudio,
+                    ),
+                  )
                   .toList(),
             ),
       bottomNavigationBar: BottomAppBar(
@@ -674,7 +434,6 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
   void dispose() {
     _pageTimer?.cancel();
     _scrollController.dispose();
-    _audioPlayer.dispose();
     _resyncSubscription?.cancel();
     _syncService.disposeSyncer();
     super.dispose();
@@ -749,6 +508,364 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
 
   String _pretty(String c) => c[0].toUpperCase() + c.substring(1);
 
+  void _updateTitle(String title) {
+    if (_currentItem != title) {
+      AudioNotifier.changeCurrentItem();
+    }
+
+    _currentItem = title;
+  }
+
+  GlobalKey<State<StatefulWidget>> _getKey(String id, String title) {
+    return _itemKeys.putIfAbsent(id, () => GlobalKey(debugLabel: '$title-$id'));
+  }
+
   @override
   FlutterSecureStorage get secureStorage => widget.secureStorage;
+}
+
+class ScheduleNode extends StatefulWidget {
+  final ScheduleItem item;
+  final int depth;
+  final bool parentLive;
+  final bool Function(ScheduleItem it) matchesDay;
+  final ScheduleSlot Function(ScheduleItem it) slotForDay;
+  final bool Function(ScheduleItem it) isLive;
+  final void Function(String title) updateTitle;
+  final GlobalKey<State<StatefulWidget>> Function(String id, String title)
+  getKey;
+  final String? Function() currentPlayingFile;
+  final Future<void> Function(ScheduleItem item) handleAudio;
+
+  const ScheduleNode({
+    super.key,
+    required this.item,
+    required this.depth,
+    required this.parentLive,
+    required this.matchesDay,
+    required this.slotForDay,
+    required this.isLive,
+    required this.updateTitle,
+    required this.getKey,
+    required this.currentPlayingFile,
+    required this.handleAudio,
+  });
+
+  @override
+  State<ScheduleNode> createState() => _ScheduleNodeState();
+}
+
+class _ScheduleNodeState extends State<ScheduleNode> {
+  late AudioPlayer _audioPlayer;
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _audioPlayer = AudioService.player;
+    _expanded = widget.parentLive || widget.isLive(widget.item);
+  }
+
+  String _fmt(String hhmm) {
+    final p = hhmm.split(':');
+    return DateFormat(
+      'h:mm a',
+    ).format(DateTime(0, 1, 1, int.parse(p[0]), int.parse(p[1])));
+  }
+
+  Future<void> _openLink(String url) async {
+    final uri = Uri.parse(url);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final children = widget.item.children.where(widget.matchesDay).toList()
+      ..sort(
+        (a, b) => widget
+            .slotForDay(a)
+            .timeStart
+            .compareTo(widget.slotForDay(b).timeStart),
+      );
+
+    final slot = widget.slotForDay(widget.item);
+    final isLive = widget.parentLive || widget.isLive(widget.item);
+
+    if (!widget.parentLive && isLive) widget.updateTitle(widget.item.title);
+
+    final itemKey = widget.depth == 0
+        ? widget.getKey(widget.item.id, widget.item.title)
+        : null;
+    final icon = switch (widget.item.category) {
+      'nutrition' => Icons.restaurant_menu_outlined,
+      'hydration' => Icons.water_drop_outlined,
+      'drill' => Icons.sports_tennis_outlined,
+      'exercise' => Icons.directions_run_outlined,
+      'rest' => Icons.bedtime_outlined,
+      _ => widget.depth == 0 ? Icons.task_alt_outlined : null,
+    };
+    final subtitle =
+        '${!_expanded
+            ? slot.timeStart != slot.timeEnd
+                  ? '${_fmt(slot.timeStart)} - ${_fmt(slot.timeEnd)}'
+                  : _fmt(slot.timeStart)
+            : ''}'
+        '${widget.item.description != null && !widget.item.description!.contains('\n') ? ' • ${widget.item.description}' : ''}'
+        '${slot.description != null && !slot.description!.contains('\n') ? ' • ${slot.description}' : ''}'
+        '${widget.item.setsAndReps != null ? ' • ${widget.item.setsAndReps}' : ''}'
+        '${widget.item.reps != null ? ' • x${widget.item.reps}' : ''}'
+        '${widget.item.durationMin != null ? ' • ${widget.item.durationMin} mins' : ''}';
+    final lines = [
+      ...(widget.item.description ?? '').split('\n'),
+      ...(slot.description ?? '').split('\n'),
+    ].where((r) => r.isNotEmpty);
+
+    if (widget.item.title == ScheduleItem.itemWithoutTitle ||
+        widget.item.title.trim().isEmpty) {
+      return Column(
+        children: children
+            .map(
+              (c) => ScheduleNode(
+                item: c,
+                depth: widget.depth,
+                parentLive: isLive,
+                isLive: widget.isLive,
+                matchesDay: widget.matchesDay,
+                slotForDay: widget.slotForDay,
+                updateTitle: widget.updateTitle,
+                getKey: widget.getKey,
+                currentPlayingFile: widget.currentPlayingFile,
+                handleAudio: widget.handleAudio,
+              ),
+            )
+            .toList(),
+      );
+    }
+
+    final linksIcons = [
+      if (widget.item.audio != null)
+        IconButton(
+          icon: Icon(
+            widget.item.audio == widget.currentPlayingFile() &&
+                    _audioPlayer.playing
+                ? Icons.pause_circle_filled
+                : Icons.play_circle_fill,
+            color: isLive ? Theme.of(context).colorScheme.primary : null,
+          ),
+          onPressed: () => widget.handleAudio(widget.item),
+        ),
+      if (widget.item.audio != null &&
+          widget.item.audio == widget.currentPlayingFile() &&
+          _audioPlayer.playing)
+        IconButton(
+          icon: Icon(
+            Icons.stop_circle_outlined,
+            color: isLive ? Theme.of(context).colorScheme.primary : null,
+          ),
+          onPressed: () {
+            _audioPlayer.stop();
+            _audioPlayer.seek(Duration.zero);
+          },
+        ),
+      for (final l in widget.item.links)
+        IconButton(
+          icon: Icon(l.contains('youtu') ? Icons.ondemand_video : Icons.link),
+          onPressed: () => _openLink(l),
+        ),
+    ];
+
+    if (children.isEmpty) {
+      return Container(
+        key: itemKey,
+        decoration: isLive
+            ? BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 4,
+                  ),
+                ),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.07),
+              )
+            : null,
+        child: ListTile(
+          contentPadding: EdgeInsets.only(
+            left: 16 + widget.depth * 8.0,
+            right: 16,
+          ),
+          leading: (!isLive && icon == null)
+              ? null
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isLive)
+                      const Icon(Icons.circle, size: 10, color: Colors.green),
+                    if (icon != null)
+                      Icon(
+                        icon,
+                        color: isLive
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                  ],
+                ),
+          title: Text(
+            widget.item.title,
+            maxLines: 3,
+            style: TextStyle(fontWeight: isLive ? FontWeight.bold : null),
+          ),
+          subtitle: lines.isNotEmpty
+              ? ExpansionTile(
+                  title: Text(subtitle, style: const TextStyle(fontSize: 12)),
+                  subtitle: linksIcons.length > 1
+                      ? Row(
+                          mainAxisSize: MainAxisSize.max,
+                          children: linksIcons,
+                        )
+                      : null,
+                  expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                  children: lines
+                      .map(
+                        (l) =>
+                            Text('✔ $l', style: const TextStyle(fontSize: 12)),
+                      )
+                      .toList(),
+                )
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(subtitle, style: const TextStyle(fontSize: 12)),
+                    if (linksIcons.length > 1)
+                      Row(mainAxisSize: MainAxisSize.max, children: linksIcons),
+                  ],
+                ),
+          trailing: linksIcons.length == 1
+              ? Row(mainAxisSize: MainAxisSize.min, children: linksIcons)
+              : null,
+        ),
+      );
+    }
+
+    return Container(
+      key: itemKey,
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        elevation: isLive ? 3 : 1,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: isLive
+              ? BorderSide(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 1.2,
+                )
+              : BorderSide.none,
+        ),
+        color: isLive
+            ? Theme.of(
+                context,
+              ).colorScheme.primaryContainer.withValues(alpha: 0.22)
+            : null,
+        child: ExpansionTile(
+          initiallyExpanded: isLive,
+          onExpansionChanged: (value) => setState(() => _expanded = value),
+          tilePadding: EdgeInsets.only(
+            left: 16 + widget.depth * 8.0,
+            right: 16,
+          ),
+          title: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                if (isLive)
+                  Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: const BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                if (icon != null)
+                  Icon(
+                    icon,
+                    color: isLive
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                SizedBox(width: 10),
+                Text(
+                  widget.item.title,
+                  style: TextStyle(
+                    fontWeight: widget.depth == 0
+                        ? FontWeight.bold
+                        : FontWeight.w600,
+                    color: isLive
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                ),
+                if (widget.item.audio != null)
+                  IconButton(
+                    onPressed: () => widget.handleAudio(widget.item),
+                    icon: Icon(
+                      widget.item.audio == widget.currentPlayingFile() &&
+                              _audioPlayer.playing
+                          ? Icons.pause
+                          : Icons.play_arrow,
+                    ),
+                  ),
+                if (widget.item.audio != null &&
+                    widget.item.audio == widget.currentPlayingFile() &&
+                    _audioPlayer.playing)
+                  IconButton(
+                    onPressed: () {
+                      _audioPlayer.stop();
+                      _audioPlayer.seek(Duration.zero);
+                    },
+                    icon: Icon(Icons.stop_circle_outlined),
+                  ),
+              ],
+            ),
+          ),
+          subtitle: Text(subtitle),
+          children: [
+            if (widget.item.description != null)
+              Padding(
+                padding: EdgeInsets.only(
+                  left: 16 + widget.depth * 8.0,
+                  right: 16,
+                  bottom: 4,
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    widget.item.description!,
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                ),
+              ),
+            ...children.map(
+              (c) => ScheduleNode(
+                item: c,
+                depth: widget.depth + 1,
+                parentLive: isLive,
+                isLive: widget.isLive,
+                matchesDay: widget.matchesDay,
+                slotForDay: widget.slotForDay,
+                updateTitle: widget.updateTitle,
+                getKey: widget.getKey,
+                currentPlayingFile: widget.currentPlayingFile,
+                handleAudio: widget.handleAudio,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -10,7 +10,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_common/app_logger.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
-import 'package:tennis_training_tool/services/audio_service.dart';
+
+import '../services/audio_service.dart';
 
 class AudioPlayerPage extends StatefulWidget {
   const AudioPlayerPage({super.key});
