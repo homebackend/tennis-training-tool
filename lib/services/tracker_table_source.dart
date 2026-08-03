@@ -73,7 +73,7 @@ class TrackerTableSource extends DataTableSource {
       }
 
       final textDisplay = value is double
-          ? value.toStringAsFixed(1)
+          ? value.toStringAsFixed(col['precision'] ?? 2)
           : (value?.toString() ?? "");
 
       return DataCell(
