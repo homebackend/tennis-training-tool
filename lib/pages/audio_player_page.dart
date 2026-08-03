@@ -1,6 +1,4 @@
 /*
- * Copyright (c) 2026 Neeraj Jakhar
- *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -12,7 +10,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_common/app_logger.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
-import 'package:tennis_training_tool/services/audio_service.dart';
+
+import '../services/audio_service.dart';
 
 class AudioPlayerPage extends StatefulWidget {
   const AudioPlayerPage({super.key});

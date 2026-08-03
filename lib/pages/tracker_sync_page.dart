@@ -1,6 +1,4 @@
 /*
- * Copyright (c) 2026 Neeraj Jakhar
- *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -9,8 +7,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_common/mixin/main_config_manager.dart';
 import 'package:flutter_common/mixin/page_common.dart';
+import 'package:flutter_common/tool.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -249,6 +249,27 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
                         _showSnackBar("Error: $e");
                       }
                     },
+            ),
+          if (isMobilePlatform())
+            OrientationBuilder(
+              builder: (context, orientation) {
+                final isRealLandscape = orientation == Orientation.landscape;
+
+                return IconButton(
+                  icon: Icon(
+                    isRealLandscape
+                        ? Icons.screen_lock_portrait
+                        : Icons.screen_lock_landscape,
+                  ),
+                  onPressed: () {
+                    SystemChrome.setPreferredOrientations([
+                      isRealLandscape
+                          ? DeviceOrientation.portraitUp
+                          : DeviceOrientation.landscapeLeft,
+                    ]);
+                  },
+                );
+              },
             ),
           ...getAppBarCommonActions(widget.configManager),
         ],
