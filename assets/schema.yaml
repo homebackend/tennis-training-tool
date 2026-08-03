@@ -8,12 +8,15 @@ sheets:
       - id: "SleepNight"
         name: "Sleep hours - Night"
         type: "numeric"
+        precision: 1
       - id: "SleepAfternoon"
         name: "Sleep hours - Afternoon"
         type: "numeric"
+        precision: 1
       - id: "SleepTotal"
         name: "Sleep hours - Total"
         type: "computed"
+        precision: 1
         formula: "SleepNight + SleepAfternoon"
         rules:
           - condition: "val <= 6"
@@ -104,6 +107,7 @@ sheets:
         optional: true
       - id: "Server20"
         name: "Serve / 20"
+        precision: 0
         type: "numeric"
         optional: true
       - id: "ServeKmh"
@@ -113,6 +117,7 @@ sheets:
       - id: "WallHits30s"
         name: "Wall Hits / 30s"
         type: "numeric"
+        precision: 0
         optional: true
       - id: "SpiderDrill"
         name: "Spider Drill (s)"
