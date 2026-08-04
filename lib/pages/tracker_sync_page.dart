@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_common/mixin/main_config_manager.dart';
 import 'package:flutter_common/mixin/page_common.dart';
 import 'package:flutter_common/tool.dart';
+import 'package:flutter_common/widgets/screen_orientation_button.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -250,27 +251,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
                       }
                     },
             ),
-          if (isMobilePlatform())
-            OrientationBuilder(
-              builder: (context, orientation) {
-                final isRealLandscape = orientation == Orientation.landscape;
-
-                return IconButton(
-                  icon: Icon(
-                    isRealLandscape
-                        ? Icons.screen_lock_portrait
-                        : Icons.screen_lock_landscape,
-                  ),
-                  onPressed: () {
-                    SystemChrome.setPreferredOrientations([
-                      isRealLandscape
-                          ? DeviceOrientation.portraitUp
-                          : DeviceOrientation.landscapeLeft,
-                    ]);
-                  },
-                );
-              },
-            ),
+          if (isMobilePlatform()) ScreenOrientationButton(),
           ...getAppBarCommonActions(widget.configManager),
         ],
         bottom: _tabController != null
