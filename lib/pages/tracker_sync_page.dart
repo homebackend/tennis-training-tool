@@ -7,7 +7,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_common/mixin/main_config_manager.dart';
 import 'package:flutter_common/mixin/page_common.dart';
 import 'package:flutter_common/tool.dart';
