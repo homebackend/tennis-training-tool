@@ -578,6 +578,34 @@ class _ScheduleNodeState extends State<ScheduleNode> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  List<Widget> _audioButtons(bool isLive) => [
+    if (widget.item.audio != null)
+      IconButton(
+        icon: Icon(
+          widget.item.audio == widget.currentPlayingFile() &&
+                  _audioPlayer.playing
+              ? Icons.pause_circle_filled
+              : Icons.play_circle_fill,
+          color: isLive ? Theme.of(context).colorScheme.primary : null,
+        ),
+        onPressed: () => widget.handleAudio(widget.item),
+      ),
+    if (widget.item.audio != null &&
+        widget.item.audio == widget.currentPlayingFile() &&
+        _audioPlayer.playing)
+      IconButton(
+        icon: Icon(
+          Icons.stop_circle_outlined,
+          color: isLive ? Theme.of(context).colorScheme.primary : null,
+        ),
+        onPressed: () {
+          _audioPlayer.stop();
+          _audioPlayer.seek(Duration.zero);
+          setState(() {});
+        },
+      ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final children = widget.item.children.where(widget.matchesDay).toList()
@@ -643,30 +671,7 @@ class _ScheduleNodeState extends State<ScheduleNode> {
     }
 
     final linksIcons = [
-      if (widget.item.audio != null)
-        IconButton(
-          icon: Icon(
-            widget.item.audio == widget.currentPlayingFile() &&
-                    _audioPlayer.playing
-                ? Icons.pause_circle_filled
-                : Icons.play_circle_fill,
-            color: isLive ? Theme.of(context).colorScheme.primary : null,
-          ),
-          onPressed: () => widget.handleAudio(widget.item),
-        ),
-      if (widget.item.audio != null &&
-          widget.item.audio == widget.currentPlayingFile() &&
-          _audioPlayer.playing)
-        IconButton(
-          icon: Icon(
-            Icons.stop_circle_outlined,
-            color: isLive ? Theme.of(context).colorScheme.primary : null,
-          ),
-          onPressed: () {
-            _audioPlayer.stop();
-            _audioPlayer.seek(Duration.zero);
-          },
-        ),
+      ..._audioButtons(isLive),
       for (final l in widget.item.links)
         IconButton(
           icon: Icon(l.contains('youtu') ? Icons.ondemand_video : Icons.link),
@@ -716,7 +721,7 @@ class _ScheduleNodeState extends State<ScheduleNode> {
             maxLines: 3,
             style: TextStyle(fontWeight: isLive ? FontWeight.bold : null),
           ),
-          subtitle: lines.isNotEmpty
+          subtitle: lines.length > 1
               ? ExpansionTile(
                   title: Text(subtitle, style: const TextStyle(fontSize: 12)),
                   subtitle: linksIcons.length > 1
@@ -733,6 +738,8 @@ class _ScheduleNodeState extends State<ScheduleNode> {
                       )
                       .toList(),
                 )
+              : subtitle.isEmpty && linksIcons.isEmpty
+              ? null
               : Column(
                   mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -797,7 +804,7 @@ class _ScheduleNodeState extends State<ScheduleNode> {
                         ? Theme.of(context).colorScheme.primary
                         : null,
                   ),
-                SizedBox(width: 10),
+                if (isLive || icon != null) SizedBox(width: 10),
                 Text(
                   widget.item.title,
                   style: TextStyle(
@@ -809,46 +816,12 @@ class _ScheduleNodeState extends State<ScheduleNode> {
                         : null,
                   ),
                 ),
-                if (widget.item.audio != null)
-                  IconButton(
-                    onPressed: () => widget.handleAudio(widget.item),
-                    icon: Icon(
-                      widget.item.audio == widget.currentPlayingFile() &&
-                              _audioPlayer.playing
-                          ? Icons.pause
-                          : Icons.play_arrow,
-                    ),
-                  ),
-                if (widget.item.audio != null &&
-                    widget.item.audio == widget.currentPlayingFile() &&
-                    _audioPlayer.playing)
-                  IconButton(
-                    onPressed: () {
-                      _audioPlayer.stop();
-                      _audioPlayer.seek(Duration.zero);
-                    },
-                    icon: Icon(Icons.stop_circle_outlined),
-                  ),
+                ..._audioButtons(isLive),
               ],
             ),
           ),
-          subtitle: Text(subtitle),
+          subtitle: subtitle.isEmpty ? null : Text(subtitle),
           children: [
-            if (widget.item.description != null)
-              Padding(
-                padding: EdgeInsets.only(
-                  left: 16 + widget.depth * 8.0,
-                  right: 16,
-                  bottom: 4,
-                ),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    widget.item.description!,
-                    style: const TextStyle(color: Colors.black54),
-                  ),
-                ),
-              ),
             ...children.map(
               (c) => ScheduleNode(
                 item: c,
