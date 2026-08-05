@@ -99,6 +99,8 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
   int weeks = 2;
   final List<ScheduleItem> items = [];
   late final TextEditingController _weeksController;
+  Set<int> _filteredWeeks = {};
+  Set<int> _filteredDays = {};
 
   @override
   void initState() {
@@ -130,12 +132,39 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
       items.addAll(its);
     }
     _weeksController = TextEditingController(text: weeks.toString());
+    _selectToday();
   }
 
   @override
   void dispose() {
     _weeksController.dispose();
     super.dispose();
+  }
+
+  DateTime _getMonday(DateTime date) {
+    final d = DateTime(date.year, date.month, date.day);
+    return d.subtract(Duration(days: d.weekday - 1));
+  }
+
+  DateTime get mondayOfStartWeek => _getMonday(start);
+
+  int _weekForDate(DateTime date) {
+    final monday = mondayOfStartWeek;
+    final diff = DateTime(
+      date.year,
+      date.month,
+      date.day,
+    ).difference(monday).inDays;
+    if (diff < 0) return 1;
+    return (diff ~/ 7) % weeks + 1;
+  }
+
+  int _dayForDate(DateTime date) => date.weekday;
+
+  void _selectToday() {
+    final today = DateTime.now();
+    _filteredWeeks = {_weekForDate(today)};
+    _filteredDays = {_dayForDate(today)};
   }
 
   @override
@@ -197,7 +226,10 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
                         );
                         if (d != null) {
                           _markDirty();
-                          setState(() => start = d);
+                          setState(() {
+                            start = d;
+                            _selectToday();
+                          });
                         }
                       },
                     ),
@@ -207,11 +239,69 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
                         border: OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        WeeksRangeFormatter(),
+                      ],
                       controller: _weeksController,
                       onChanged: (v) {
                         _markDirty();
-                        weeks = int.tryParse(v) ?? weeks;
+                        final parsed = int.tryParse(v);
+                        if (parsed != null) {
+                          setState(() {
+                            weeks = parsed;
+                            _filteredWeeks.removeWhere((w) => w > weeks);
+                          });
+                        }
                       },
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Filter by Week'),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            for (int i = 1; i <= weeks; i++)
+                              FilterChip(
+                                label: Text('W$i'),
+                                selected: _filteredWeeks.contains(i),
+                                onSelected: (sel) => setState(() {
+                                  sel
+                                      ? _filteredWeeks.add(i)
+                                      : _filteredWeeks.remove(i);
+                                }),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Text('Filter by Day'),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            for (int d = 1; d <= 7; d++)
+                              FilterChip(
+                                label: Text(
+                                  ScheduleCommon.weekNames.values.toList()[d -
+                                      1],
+                                ),
+                                selected: _filteredDays.contains(d),
+                                onSelected: (sel) => setState(() {
+                                  sel
+                                      ? _filteredDays.add(d)
+                                      : _filteredDays.remove(d);
+                                }),
+                              ),
+                          ],
+                        ),
+                        TextButton(
+                          onPressed: () => setState(() {
+                            _filteredWeeks.clear();
+                            _filteredDays.clear();
+                          }),
+                          child: Text('Clear = Show All'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -229,43 +319,60 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
                 ),
               ],
             ),
-            ...items.asMap().entries.map((e) {
-              ScheduleItem onDelete() {
-                _markDirty();
-                final deletedItem = items.removeAt(e.key);
-                setState(() {});
-                handleDeletion(items, e.key);
-                return deletedItem;
-              }
+            ...items
+                .where((item) {
+                  if (item.slots.isEmpty) return true;
 
-              return _ItemCard(
-                key: ValueKey(e.value),
-                item: e.value,
-                position: e.key,
-                length: items.length,
-                maxWeeks: weeks,
-                audioMap: _audioMap,
-                onChanged: (u) {
-                  _markDirty();
-                  setState(() => items[e.key] = u);
-                },
-                onDelete: onDelete,
-                onSwap: (src, dest) {
-                  _markDirty();
-                  swapItems(items, src, dest);
-                  setState(() {});
-                },
-                onOutdentParent: (ScheduleItem item) {
-                  _markDirty();
-                  item.changed = true;
-                  item.shift = 0;
-                  item.index = items.length;
-                  setState(() => items.add(item));
-                },
-                onNest: (dest) =>
-                    handleNesting(context, items, e.key, dest, onDelete),
-              );
-            }),
+                  return item.slots.any((s) {
+                    final weekOk =
+                        _filteredWeeks.isEmpty ||
+                        s.weeks.any(_filteredWeeks.contains);
+                    final dayOk =
+                        _filteredDays.isEmpty ||
+                        s.days.any(_filteredDays.contains);
+                    return weekOk && dayOk;
+                  });
+                })
+                .toList()
+                .asMap()
+                .entries
+                .map((e) {
+                  ScheduleItem onDelete() {
+                    _markDirty();
+                    final deletedItem = items.removeAt(e.key);
+                    setState(() {});
+                    handleDeletion(items, e.key);
+                    return deletedItem;
+                  }
+
+                  return _ItemCard(
+                    key: ValueKey(e.value),
+                    item: e.value,
+                    position: e.key,
+                    length: items.length,
+                    maxWeeks: weeks,
+                    audioMap: _audioMap,
+                    onChanged: (u) {
+                      _markDirty();
+                      setState(() => items[e.key] = u);
+                    },
+                    onDelete: onDelete,
+                    onSwap: (src, dest) {
+                      _markDirty();
+                      swapItems(items, src, dest);
+                      setState(() {});
+                    },
+                    onOutdentParent: (ScheduleItem item) {
+                      _markDirty();
+                      item.changed = true;
+                      item.shift = 0;
+                      item.index = items.length;
+                      setState(() => items.add(item));
+                    },
+                    onNest: (dest) =>
+                        handleNesting(context, items, e.key, dest, onDelete),
+                  );
+                }),
             if (items.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(32),
@@ -1260,5 +1367,16 @@ void addSlotKeysIfMissing(ScheduleItem item, List<ScheduleSlot> slots) {
       final s = slots[i];
       s.index = i;
     }
+  }
+}
+
+class WeeksRangeFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(oldValue, newValue) {
+    if (newValue.text.isEmpty) return newValue;
+    final v = int.tryParse(newValue.text);
+    if (v == null) return oldValue;
+    if (v < 1 || v > 100) return oldValue;
+    return newValue;
   }
 }
