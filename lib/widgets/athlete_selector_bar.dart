@@ -5,6 +5,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter_common/tool.dart';
 
 class AthleteSelectorBar extends StatelessWidget {
   final List<dynamic> kids;
@@ -88,28 +89,13 @@ class AthleteSelectorBar extends StatelessWidget {
   }
 
   void _confirmProfileErasure(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("⚠️ Critical Deletion Warning"),
-        content: const Text(
-          "Deleting this kid profile will wipe all historical data associated with them. Proceed?",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              onKidDeleted();
-              Navigator.pop(ctx);
-            },
-            child: const Text("Wipe Child Data"),
-          ),
-        ],
-      ),
+    showConfirmDialog(
+      context,
+      '⚠️ Critical Deletion Warning',
+      'Deleting this profile will wipe all data associated with them. Are you sure you want to proceed?',
+      okText: 'Wipe Child Data',
+      isDeletion: true,
+      okAction: onKidDeleted,
     );
   }
 }
