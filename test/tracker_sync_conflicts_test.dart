@@ -26,6 +26,7 @@ void main() {
       () {},
       () {},
       () {},
+      () {},
       (_) async {},
       client: http.Client(),
     );
