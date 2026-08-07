@@ -249,7 +249,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
 
   @override
   Widget build(BuildContext context) {
-    if (_syncInProgress || _items.isEmpty) {
+    if (_items.isEmpty) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
@@ -275,11 +275,14 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
         actions: [
           IconButton(
             icon: Icon(_syncInProgress ? Icons.sync_lock : Icons.sync),
-            onPressed: _syncInProgress ? null : _syncService.syncData,
+            onPressed: _syncInProgress
+                ? null
+                : () => _syncService.syncData(force: true),
             tooltip: 'Sync Latest Schedule',
           ),
           IconButton(
             icon: const Icon(Icons.edit_calendar_outlined),
+            tooltip: 'Edit Schedule',
             onPressed: () {
               Navigator.push(
                 context,
@@ -290,7 +293,7 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
                       _syncService.yaml = newYaml;
                       await _syncService.setSyncDataModified(true);
                       await _loadFromYaml(newYaml);
-                      await _syncService.syncData();
+                      await _syncService.syncData(force: true);
                     },
                   ),
                 ),

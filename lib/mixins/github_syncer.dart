@@ -35,8 +35,13 @@ mixin GitHubSyncer<DataType>
   @override
   Future<void> notifyLoadErrorOccurred() async => AudioNotifier.errorOccurred();
 
-  Future<void> pushToGitHubWithAutoMerge({String? retryServerFileSha}) =>
-      pushWithAutoMerge(retryServerFileSha: retryServerFileSha);
+  Future<void> pushToGitHubWithAutoMerge({
+    String? retryServerFileSha,
+    bool background = false,
+  }) => pushWithAutoMerge(
+    retryServerFileSha: retryServerFileSha,
+    background: background,
+  );
 
   @override
   Future<(int, String?, String?, Uint8List?)> fetchRemote({
@@ -54,9 +59,9 @@ mixin GitHubSyncer<DataType>
       final sha = documentSha != null && documentSha.isNotEmpty
           ? documentSha
           : dataBody['sha'];
-      final etag = lastModified != null && lastModified.isNotEmpty
-          ? lastModified
-          : dataRes.headers['etag'] ?? '';
+      final etag =
+          dataRes.headers['etag'] ??
+          (lastModified != null && lastModified.isNotEmpty ? lastModified : '');
       if (dataBody['encoding'] != 'base64' || dataBody['content'] == '') {
         final (blobUrl, headers, pass) = await _getBlobRequestData(
           documentSha: sha,

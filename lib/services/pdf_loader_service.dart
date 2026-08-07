@@ -128,7 +128,7 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
       await sharedPreferences.setString(_keyLastPickedLocalPath, path);
       await sharedPreferences.setInt(keyLastPdfPage, 1);
       await setSyncDataModified(true);
-      syncData();
+      syncData(force: true);
     }
   }
 

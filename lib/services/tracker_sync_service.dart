@@ -90,6 +90,7 @@ class TrackerSyncService
   final void Function() syncStartNotifier;
   final void Function() syncDoneNotifier;
   final void Function() syncFailedNotifier;
+  final void Function() syncConflictsNotifier;
   final Future<void> Function(TrackerSyncService self) loader;
 
   Map? schema;
@@ -101,6 +102,7 @@ class TrackerSyncService
     this.syncStartNotifier,
     this.syncDoneNotifier,
     this.syncFailedNotifier,
+    this.syncConflictsNotifier,
     this.loader, {
     http.Client? client,
   }) : _client = client ?? http.Client();
@@ -145,6 +147,9 @@ class TrackerSyncService
 
   @override
   void notifySyncStarted() => syncStartNotifier();
+
+  @override
+  void notifySyncConflicts() => syncConflictsNotifier();
 
   @override
   Future<void> processConflicts(Uint8List serverData, String serverSha) async {
