@@ -531,6 +531,9 @@ class ScheduleNode extends StatefulWidget {
   final ScheduleItem item;
   final int depth;
   final bool parentLive;
+  final String? parentTitle;
+  final IconData? parentIcon;
+  final void Function()? parentUnexpand;
   final bool Function(ScheduleItem it) matchesDay;
   final ScheduleSlot Function(ScheduleItem it) slotForDay;
   final bool Function(ScheduleItem it) isLive;
@@ -545,6 +548,9 @@ class ScheduleNode extends StatefulWidget {
     required this.item,
     required this.depth,
     required this.parentLive,
+    this.parentTitle,
+    this.parentIcon,
+    this.parentUnexpand,
     required this.matchesDay,
     required this.slotForDay,
     required this.isLive,
@@ -566,7 +572,10 @@ class _ScheduleNodeState extends State<ScheduleNode> {
   void initState() {
     super.initState();
     _audioPlayer = AudioService.player;
-    _expanded = widget.parentLive || widget.isLive(widget.item);
+    _expanded =
+        widget.parentLive ||
+        widget.isLive(widget.item) ||
+        widget.parentTitle != null;
   }
 
   String _fmt(String hhmm) {
@@ -633,7 +642,9 @@ class _ScheduleNodeState extends State<ScheduleNode> {
       'drill' => Icons.sports_tennis_outlined,
       'exercise' => Icons.directions_run_outlined,
       'rest' => Icons.bedtime_outlined,
-      _ => widget.depth == 0 ? Icons.task_alt_outlined : null,
+      _ =>
+        widget.parentIcon ??
+            (widget.depth == 0 ? Icons.task_alt_outlined : null),
     };
     final subtitle =
         '${!_expanded
@@ -650,28 +661,6 @@ class _ScheduleNodeState extends State<ScheduleNode> {
       ...(widget.item.description ?? '').split('\n'),
       ...(slot.description ?? '').split('\n'),
     ].where((r) => r.isNotEmpty);
-
-    if (widget.item.title == ScheduleItem.itemWithoutTitle ||
-        widget.item.title.trim().isEmpty) {
-      return Column(
-        children: children
-            .map(
-              (c) => ScheduleNode(
-                item: c,
-                depth: widget.depth,
-                parentLive: isLive,
-                isLive: widget.isLive,
-                matchesDay: widget.matchesDay,
-                slotForDay: widget.slotForDay,
-                updateTitle: widget.updateTitle,
-                getKey: widget.getKey,
-                currentPlayingFile: widget.currentPlayingFile,
-                handleAudio: widget.handleAudio,
-              ),
-            )
-            .toList(),
-      );
-    }
 
     final linksIcons = [
       ..._audioButtons(isLive),
@@ -720,7 +709,7 @@ class _ScheduleNodeState extends State<ScheduleNode> {
                   ],
                 ),
           title: Text(
-            widget.item.title,
+            _title(),
             maxLines: 3,
             style: TextStyle(fontWeight: isLive ? FontWeight.bold : null),
           ),
@@ -759,89 +748,149 @@ class _ScheduleNodeState extends State<ScheduleNode> {
       );
     }
 
-    return Container(
-      key: itemKey,
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        elevation: isLive ? 3 : 1,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: isLive
-              ? BorderSide(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 1.2,
-                )
-              : BorderSide.none,
-        ),
-        color: isLive
-            ? Theme.of(
-                context,
-              ).colorScheme.primaryContainer.withValues(alpha: 0.22)
-            : null,
-        child: ExpansionTile(
-          initiallyExpanded: isLive,
-          onExpansionChanged: (value) => setState(() => _expanded = value),
-          tilePadding: EdgeInsets.only(
-            left: 16 + widget.depth * 8.0,
-            right: 16,
+    if (_expanded &&
+        children.length == 1 &&
+        subtitle.isEmpty &&
+        children[0].children.isNotEmpty) {
+      return _listItemValue(
+        children[0],
+        isLive,
+        parentTitle: _title(),
+        parentIcon: icon,
+      );
+    }
+
+    Widget listItemContainer() {
+      return Container(
+        key: itemKey,
+        child: Card(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          elevation: isLive ? 3 : 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: isLive
+                ? BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 1.2,
+                  )
+                : BorderSide.none,
           ),
-          title: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: [
-                if (isLive)
-                  Container(
-                    width: 8,
-                    height: 8,
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: const BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
+          color: isLive
+              ? Theme.of(
+                  context,
+                ).colorScheme.primaryContainer.withValues(alpha: 0.22)
+              : null,
+          child: ExpansionTile(
+            initiallyExpanded: isLive || widget.parentUnexpand != null,
+            onExpansionChanged: (value) => setState(() {
+              if (widget.parentUnexpand != null) widget.parentUnexpand!();
+              _expanded = value;
+            }),
+            tilePadding: EdgeInsets.only(
+              left: 16 + widget.depth * 8.0,
+              right: 16,
+            ),
+            title: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  if (isLive)
+                    Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: const BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  if (icon != null)
+                    Icon(
+                      icon,
+                      color: isLive
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                  if (isLive || icon != null) SizedBox(width: 10),
+                  Text(
+                    _title(),
+                    style: TextStyle(
+                      fontWeight: widget.depth == 0
+                          ? FontWeight.bold
+                          : FontWeight.w600,
+                      color: isLive
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
                     ),
                   ),
-                if (icon != null)
-                  Icon(
-                    icon,
-                    color: isLive
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
-                  ),
-                if (isLive || icon != null) SizedBox(width: 10),
-                Text(
-                  widget.item.title,
-                  style: TextStyle(
-                    fontWeight: widget.depth == 0
-                        ? FontWeight.bold
-                        : FontWeight.w600,
-                    color: isLive
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
-                  ),
-                ),
-                ..._audioButtons(isLive),
-              ],
-            ),
-          ),
-          subtitle: subtitle.isEmpty ? null : Text(subtitle),
-          children: [
-            ...children.map(
-              (c) => ScheduleNode(
-                item: c,
-                depth: widget.depth + 1,
-                parentLive: isLive,
-                isLive: widget.isLive,
-                matchesDay: widget.matchesDay,
-                slotForDay: widget.slotForDay,
-                updateTitle: widget.updateTitle,
-                getKey: widget.getKey,
-                currentPlayingFile: widget.currentPlayingFile,
-                handleAudio: widget.handleAudio,
+                  ..._audioButtons(isLive),
+                ],
               ),
             ),
-          ],
+            subtitle: subtitle.isEmpty ? null : Text(subtitle),
+            children: [...children.map((c) => _listItemValue(c, isLive))],
+          ),
         ),
-      ),
+      );
+    }
+
+    if (isDummyTitle()) {
+      if (widget.parentTitle != null) {
+        return listItemContainer();
+      } else {
+        return Column(
+          children: children
+              .map(
+                (c) => _listItemValue(
+                  c,
+                  isLive,
+                  parentTitle: _title(),
+                  parentIcon: icon,
+                ),
+              )
+              .toList(),
+        );
+      }
+    }
+
+    return listItemContainer();
+  }
+
+  bool isDummyTitle() =>
+      widget.item.title == ScheduleItem.itemWithoutTitle ||
+      widget.item.title.trim().isEmpty;
+
+  String _title() => [
+    if (widget.parentTitle != null) widget.parentTitle,
+    if (!isDummyTitle()) widget.item.title,
+  ].join(' // ');
+
+  ScheduleNode _listItemValue(
+    ScheduleItem child,
+    bool isLive, {
+    String? parentTitle,
+    IconData? parentIcon,
+  }) {
+    return ScheduleNode(
+      item: child,
+      depth: widget.depth + 1,
+      parentTitle: parentTitle,
+      parentIcon: parentIcon,
+      parentLive: isLive,
+      parentUnexpand: parentTitle != null
+          ? () => setState(() {
+              if (widget.parentUnexpand != null) widget.parentUnexpand!();
+              _expanded = false;
+            })
+          : null,
+      isLive: widget.isLive,
+      matchesDay: widget.matchesDay,
+      slotForDay: widget.slotForDay,
+      updateTitle: widget.updateTitle,
+      getKey: widget.getKey,
+      currentPlayingFile: widget.currentPlayingFile,
+      handleAudio: widget.handleAudio,
     );
   }
 }
