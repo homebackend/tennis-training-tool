@@ -117,7 +117,8 @@ class _PdfViewerPageState extends State<PdfViewerPage>
             ),
           IconButton(
             icon: Icon(syncInProgress ? Icons.sync_lock : Icons.sync),
-            onPressed: syncInProgress ? null : syncData,
+            onPressed: syncInProgress ? null : () => syncData(force: true),
+            tooltip: 'Sync document',
           ),
           IconButton(
             icon: const Icon(Icons.upload),

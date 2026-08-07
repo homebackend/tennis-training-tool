@@ -47,6 +47,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
 
   bool _isLoading = true;
   bool _isSyncing = false;
+  bool _hasSyncConflicts = false;
   bool _localDataModified = false;
   String? _selectedKidId;
   TabController? _tabController;
@@ -74,6 +75,7 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
       () => setState(() => _isSyncing = true),
       () => setState(() => _isSyncing = false),
       () => setState(() => _isSyncing = false),
+      () => setState(() => _hasSyncConflicts = true),
       (self) async {
         if (mounted) _resetAndRefreshAllViewports();
       },
@@ -222,8 +224,11 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
             ),
           if (_localDataModified)
             IconButton(
-              icon: const Icon(Icons.cloud_upload),
-              tooltip: 'Commit to GitHub',
+              icon: Icon(
+                _hasSyncConflicts ? Icons.warning_amber : Icons.cloud_upload,
+                color: _hasSyncConflicts ? Colors.amber.shade800 : null,
+              ),
+              tooltip: 'Save Tracker Data',
               onPressed: _isSyncing
                   ? null
                   : () async {
@@ -236,13 +241,13 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
             ),
           if (!_localDataModified)
             IconButton(
-              icon: const Icon(Icons.sync),
-              tooltip: 'Sync from GitHub',
+              icon: Icon(_isSyncing ? Icons.sync_lock : Icons.sync),
+              tooltip: 'Sync Latest Tracker Data',
               onPressed: _isSyncing
                   ? null
                   : () async {
                       try {
-                        await _syncService.syncData();
+                        await _syncService.syncData(force: true);
                         _resetAndRefreshAllViewports();
                         _showSnackBar("Synced!");
                       } catch (e) {
@@ -392,9 +397,13 @@ class _TrackerSyncPageState extends State<TrackerSyncPage>
     try {
       await _syncService.pushToGitHubWithAutoMerge(
         retryServerFileSha: retryServerFileSha,
+        background: false,
       );
       await _syncService.setSyncDataModified(false);
-      setState(() => _localDataModified = false);
+      setState(() {
+        _localDataModified = false;
+        _hasSyncConflicts = false;
+      });
       _resetAndRefreshAllViewports();
       _showSnackBar("Saved tracker data!");
     } catch (e) {
