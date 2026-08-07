@@ -5,6 +5,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter_common/tool.dart';
 
 import '../widgets/biometric_dialogs.dart';
 import 'tracker_sync_service.dart';
@@ -95,6 +96,7 @@ class TrackerTableSource extends DataTableSource {
           children: [
             IconButton(
               icon: const Icon(Icons.edit, color: Colors.blue, size: 16),
+              tooltip: 'Edit this log',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               onPressed: () => BiometricDialogs.showMetricsRowForm(
@@ -120,14 +122,22 @@ class TrackerTableSource extends DataTableSource {
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.red, size: 16),
+              tooltip: 'Delete this log',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               onPressed: () async {
-                syncService.appData["biometrics"].removeWhere(
-                  (b) => b["entry_id"] == currentRow["entry_id"],
-                );
-                await syncService.cacheAppDataLocally();
-                onRowModified();
+                if (await showConfirmDialog(
+                  context,
+                  'Delete log',
+                  'Are you sure you want to delete this log item?',
+                  isDeletion: true,
+                )) {
+                  syncService.appData["biometrics"].removeWhere(
+                    (b) => b["entry_id"] == currentRow["entry_id"],
+                  );
+                  await syncService.cacheAppDataLocally();
+                  onRowModified();
+                }
               },
             ),
           ],
