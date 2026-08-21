@@ -116,12 +116,12 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   }
 
   Future<void> pickLocalDocument() async {
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
     );
-    if (result != null && result.files.single.path != null) {
-      final path = result.files.single.path!;
+    if (result != null && result.path != null) {
+      final path = result.path!;
       final bytes = await File(path).readAsBytes();
       await cacheLocally(bytes, appSha ?? '', appEtag ?? '');
       await processContentPostLoad(bytes);
