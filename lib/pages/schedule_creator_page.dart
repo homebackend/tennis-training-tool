@@ -255,6 +255,8 @@ class _ScheduleCreatorPageState extends State<ScheduleCreatorPage>
                         }
                       },
                     ),
+                    Divider(height: 20, color: Colors.blue),
+                    Text('Items Filter', style: TextStyle(fontSize: 18)),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

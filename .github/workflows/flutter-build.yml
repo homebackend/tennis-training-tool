@@ -381,7 +381,7 @@ jobs:
                               -name "tennis-training-tool-linux-x64.deb" -o \
                               -name "tennis-training-tool-linux-x64.deb.sig" -o \
                               -name "tennis-training-tool-windows-x64.zip" -o \
-                              -name "tennis-training-tool.msix" \) \
+                              -name "tennis-training-tool-windows-x64.msix" \) \
                               -exec cp {} ./release-assets/ \;
 
       - name: Create GitHub Release

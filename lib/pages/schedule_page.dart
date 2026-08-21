@@ -708,28 +708,15 @@ class _ScheduleNodeState extends State<ScheduleNode> {
                       ),
                   ],
                 ),
-          title: Text(
-            _title(),
-            maxLines: 3,
-            style: TextStyle(fontWeight: isLive ? FontWeight.bold : null),
-          ),
-          subtitle: lines.length > 1
-              ? ExpansionTile(
-                  title: Text(subtitle, style: const TextStyle(fontSize: 12)),
-                  subtitle: linksIcons.length > 1
-                      ? Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: linksIcons,
-                        )
-                      : null,
-                  expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                  children: lines
-                      .map(
-                        (l) =>
-                            Text('✔ $l', style: const TextStyle(fontSize: 12)),
-                      )
-                      .toList(),
-                )
+          title: (lines.length > 1 && subtitle.isEmpty)
+              ? _descriptionTile(_title(), linksIcons, lines)
+              : Text(
+                  _title(),
+                  maxLines: 3,
+                  style: TextStyle(fontWeight: isLive ? FontWeight.bold : null),
+                ),
+          subtitle: lines.length > 1 && subtitle.isNotEmpty
+              ? _descriptionTile(subtitle, linksIcons, lines)
               : subtitle.isEmpty && linksIcons.isEmpty
               ? null
               : Column(
@@ -865,6 +852,21 @@ class _ScheduleNodeState extends State<ScheduleNode> {
     if (widget.parentTitle != null) widget.parentTitle,
     if (!isDummyTitle()) widget.item.title,
   ].join(' // ');
+
+  Widget _descriptionTile(
+    String text,
+    List<Widget> linksIcons,
+    Iterable<String> lines,
+  ) => ExpansionTile(
+    title: Text(text, style: const TextStyle(fontSize: 12)),
+    subtitle: linksIcons.length > 1
+        ? Row(mainAxisSize: MainAxisSize.max, children: linksIcons)
+        : null,
+    expandedCrossAxisAlignment: CrossAxisAlignment.start,
+    children: lines
+        .map((l) => Text('✔ $l', style: const TextStyle(fontSize: 12)))
+        .toList(),
+  );
 
   ScheduleNode _listItemValue(
     ScheduleItem child,
