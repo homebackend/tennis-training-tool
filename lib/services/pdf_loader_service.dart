@@ -124,7 +124,10 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   }
 
   Future<void> switchLocalDocument() async {
-    await initPdfLoader();
+    appSha = sharedPreferences.getString(keyDocumentSha);
+    appEtag = sharedPreferences.getString(keyDocumentLastModified);
+    isModified = sharedPreferences.getBool(keyHasSyncDataModified) ?? false;
+    await syncData(background: false, force: true);
   }
 
   void showSnackBar(String m) =>

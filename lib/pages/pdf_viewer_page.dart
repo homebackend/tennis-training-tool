@@ -49,6 +49,7 @@ class _PdfViewerPageState extends State<PdfViewerPage>
 
   late final PdfViewerController _pdfController;
   final _outlineNotifier = ValueNotifier<List<PdfOutlineNode>?>(null);
+  final _pdfListUpdateNotifier = ValueNotifier<List<String>>([]);
   final _currentPageNotifier = ValueNotifier<int>(1);
   late final PdfListSyncerService _listSyncerService;
 
@@ -66,6 +67,7 @@ class _PdfViewerPageState extends State<PdfViewerPage>
     _listSyncerService = PdfListSyncerService(
       widget.secureStorage,
       widget.sharedPreferences,
+      _pdfListUpdateNotifier,
     )..initListLoad();
     _init();
   }
@@ -132,35 +134,39 @@ class _PdfViewerPageState extends State<PdfViewerPage>
 
     return Scaffold(
       appBar: AppBar(
-        title: _listSyncerService.allFiles.isNotEmpty
-            ? DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _activeFileName,
-                  isExpanded: true,
-                  items:
-                      _listSyncerService.allFiles
-                          .map(
-                            (f) => DropdownMenuItem(
-                              value: f,
-                              child: Text(f, overflow: TextOverflow.ellipsis),
-                            ),
-                          )
-                          .toList()
-                        ..add(
-                          DropdownMenuItem(
-                            value: trainingManualPdf,
-                            child: Text(
-                              trainingManualPdf,
-                              overflow: TextOverflow.ellipsis,
+        title: ValueListenableBuilder<List<String>>(
+          valueListenable: _pdfListUpdateNotifier,
+          builder: (context, allFiles, _) =>
+              _listSyncerService.allFiles.isNotEmpty
+              ? DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _activeFileName,
+                    isExpanded: true,
+                    items:
+                        _listSyncerService.allFiles
+                            .map(
+                              (f) => DropdownMenuItem(
+                                value: f,
+                                child: Text(f, overflow: TextOverflow.ellipsis),
+                              ),
+                            )
+                            .toList()
+                          ..add(
+                            DropdownMenuItem(
+                              value: trainingManualPdf,
+                              child: Text(
+                                trainingManualPdf,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
-                        ),
-                  onChanged: (v) {
-                    if (v != null) switchActiveFile(v);
-                  },
-                ),
-              )
-            : Text(_activeFileName),
+                    onChanged: (v) {
+                      if (v != null) switchActiveFile(v);
+                    },
+                  ),
+                )
+              : Text(_activeFileName),
+        ),
         leading: IconButton(
           icon: Icon(_isTocVisible ? Icons.menu_open : Icons.menu),
           onPressed: () async {
@@ -193,7 +199,7 @@ class _PdfViewerPageState extends State<PdfViewerPage>
           ),
           IconButton(
             icon: Icon(Icons.add_circle),
-            tooltip: 'Add new file',
+            tooltip: 'Add a new file',
             onPressed: addNewFile,
           ),
           ...getAppBarCommonActions(widget.configManager),
