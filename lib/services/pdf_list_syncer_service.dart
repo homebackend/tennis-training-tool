@@ -35,11 +35,16 @@ class PdfListSyncerService
   FlutterSecureStorage secureStorage;
   @override
   SharedPreferences sharedPreferences;
+  ValueNotifier<List<String>> updateNotifier;
 
   List<String> allFiles = [];
   StreamSubscription<void>? _listResyncSubscription;
 
-  PdfListSyncerService(this.secureStorage, this.sharedPreferences);
+  PdfListSyncerService(
+    this.secureStorage,
+    this.sharedPreferences,
+    this.updateNotifier,
+  );
 
   Future<void> initListLoad() async {
     await initializeSyncer();
@@ -95,7 +100,8 @@ class PdfListSyncerService
 
   @override
   Future<void> processContentPostLoad(Uint8List content) async {
-    allFiles = _parseLines(content);
+    allFiles = _parseLines(content)..sort();
+    updateNotifier.value = allFiles;
   }
 
   @override
