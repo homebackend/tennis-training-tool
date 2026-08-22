@@ -20,3 +20,4 @@ final String baseAssetName = 'tennis-training-tool';
 final String upgradeFileName = isAndroidPlatform()
     ? 'app-release.apk'
     : 'tennis-training-tool-linux-x64.pkg.tar.zst ';
+final String documentPath = 'tennis-coaching';
