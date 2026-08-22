@@ -62,21 +62,16 @@ mixin GitHubSyncer<DataType>
       final etag =
           dataRes.headers['etag'] ??
           (lastModified != null && lastModified.isNotEmpty ? lastModified : '');
-      if (dataBody['encoding'] != 'base64' || dataBody['content'] == '') {
-        final (blobUrl, headers, pass) = await _getBlobRequestData(
-          documentSha: sha,
-        );
-        final blobRes = await client.get(blobUrl, headers: headers);
-        if (blobRes.statusCode == 200) {
-          final blobBody = json.decode(blobRes.body);
-          final (sha, bytes) = await _extractContent(blobBody, pass);
-          return (blobRes.statusCode, sha, etag, bytes);
-        } else {
-          return (blobRes.statusCode, null, null, null);
-        }
+      final (blobUrl, headers, pass) = await _getBlobRequestData(
+        documentSha: sha,
+      );
+      final blobRes = await client.get(blobUrl, headers: headers);
+      if (blobRes.statusCode == 200) {
+        final blobBody = json.decode(blobRes.body);
+        final (sha, bytes) = await _extractContent(blobBody, pass);
+        return (blobRes.statusCode, sha, etag, bytes);
       } else {
-        final (sha, bytes) = await _extractContent(dataBody, pass);
-        return (dataRes.statusCode, sha, etag, bytes);
+        return (blobRes.statusCode, null, null, null);
       }
     }
 

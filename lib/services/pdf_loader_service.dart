@@ -14,12 +14,12 @@ import 'package:flutter_common/mixin/encrypt_decryt_service.dart';
 import 'package:http/http.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../constants.dart';
 import '../mixins/github_syncer.dart';
 import 'tracker_sync_service.dart';
 
 mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
-  static final _keyLastPickedLocalPath = 'last_picked_local_path';
-  static final String keyLastPdfPage = 'last_pdf_page';
+  static final String keyPdfLastPdfPage = 'last_pdf_page';
   static final String keyPdfIsModified = 'pdf_is_modified';
   static final String keyPdfDocumentSha = 'pdf_document_sha';
   static final String keyPdfLastModified = 'pdf_last_modified';
@@ -35,6 +35,7 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   bool get mounted;
   BuildContext get context;
   void setState(VoidCallback fn);
+  String get keyLastPdfPage;
 
   Future<void> initPdfLoader() async {
     lastSavedPage = sharedPreferences.getInt(keyLastPdfPage) ?? 1;
@@ -60,22 +61,10 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   Client get client => Client();
 
   @override
-  String get githubFilePath => 'tennis-coaching/$localFileName';
+  String get githubFilePath => '$documentPath/$localFileName';
 
   @override
   bool get isModifiable => true;
-
-  @override
-  String get keyDocumentLastModified => keyPdfLastModified;
-
-  @override
-  String get keyDocumentSha => keyPdfDocumentSha;
-
-  @override
-  String get keyHasSyncDataModified => keyPdfIsModified;
-
-  @override
-  String get localFileName => 'training_manual.pdf';
 
   @override
   void notifySyncDone() {
@@ -121,15 +110,21 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
       allowedExtensions: ['pdf'],
     );
     if (result != null && result.path != null) {
-      final path = result.path!;
-      final bytes = await File(path).readAsBytes();
-      await cacheLocally(bytes, appSha ?? '', appEtag ?? '');
-      await processContentPostLoad(bytes);
-      await sharedPreferences.setString(_keyLastPickedLocalPath, path);
-      await sharedPreferences.setInt(keyLastPdfPage, 1);
-      await setSyncDataModified(true);
-      syncData(force: true);
+      await addLocalDocument(result.path!);
     }
+  }
+
+  Future<void> addLocalDocument(String path) async {
+    final bytes = await File(path).readAsBytes();
+    await cacheLocally(bytes, appSha ?? '', appEtag ?? '');
+    await processContentPostLoad(bytes);
+    await sharedPreferences.setInt(keyLastPdfPage, 1);
+    await setSyncDataModified(true);
+    syncData(force: true);
+  }
+
+  Future<void> switchLocalDocument() async {
+    await initPdfLoader();
   }
 
   void showSnackBar(String m) =>
