@@ -99,4 +99,7 @@ class ScheduleSyncService
 
   @override
   Duration get syncDuration => Duration(minutes: 30);
+
+  @override
+  bool get isReleaseFile => false;
 }
