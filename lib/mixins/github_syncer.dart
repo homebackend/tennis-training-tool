@@ -62,9 +62,9 @@ mixin GitHubSyncer<DataType>
     final dataRes = await client.get(dataUrl, headers: headers);
     if (dataRes.statusCode == 200) {
       final dataBody = json.decode(dataRes.body);
-      final sha = documentSha != null && documentSha.isNotEmpty
-          ? documentSha
-          : dataBody['sha'];
+      final sha =
+          dataBody['sha'] ??
+          (documentSha != null && documentSha.isNotEmpty ? documentSha : '');
       final etag =
           dataRes.headers['etag'] ??
           (lastModified != null && lastModified.isNotEmpty ? lastModified : '');
