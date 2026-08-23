@@ -552,4 +552,7 @@ class TrackerSyncService
     }
     return 0.0;
   }
+
+  @override
+  bool get isReleaseFile => false;
 }

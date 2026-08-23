@@ -4,6 +4,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+import 'dart:io';
 import 'dart:math';
 import 'dart:async';
 import 'package:file_picker/file_picker.dart';
@@ -19,6 +20,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../mixins/github_syncer.dart';
 import '../services/pdf_list_syncer_service.dart';
 import '../services/pdf_loader_service.dart';
+import '../tool.dart';
 
 class PdfViewerPage extends StatefulWidget {
   final FlutterSecureStorage secureStorage;
@@ -46,6 +48,8 @@ class _PdfViewerPageState extends State<PdfViewerPage>
   static final String trainingManualPdf = 'training_manual.pdf';
   static final String keyPdfIsTocVisible = 'pdf_is_toc_visible';
   static final String keyActiveFile = 'pdf_active_file';
+  static final pdfSizeLimit = 150 * 1024 * 1024;
+  static final pdfSizeLimitText = '150 MB';
 
   late final PdfViewerController _pdfController;
   final _outlineNotifier = ValueNotifier<List<PdfOutlineNode>?>(null);
@@ -120,6 +124,9 @@ class _PdfViewerPageState extends State<PdfViewerPage>
       : 'pdf_${_activeFileName}_last_page';
 
   @override
+  bool get isReleaseFile => _activeFileName != trainingManualPdf;
+
+  @override
   void dispose() {
     disposePdfLoader();
     _listSyncerService.dispose();
@@ -132,41 +139,60 @@ class _PdfViewerPageState extends State<PdfViewerPage>
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    String toTitle(String fileName) {
+      final name = fileName.contains('.')
+          ? fileName.substring(0, fileName.lastIndexOf('.'))
+          : fileName;
+
+      return name
+          .split('_')
+          .map((w) {
+            if (w.isEmpty) return '';
+            return w[0].toUpperCase() + w.substring(1).toLowerCase();
+          })
+          .join(' ');
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: ValueListenableBuilder<List<String>>(
-          valueListenable: _pdfListUpdateNotifier,
-          builder: (context, allFiles, _) =>
-              _listSyncerService.allFiles.isNotEmpty
-              ? DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _activeFileName,
-                    isExpanded: true,
-                    items:
-                        _listSyncerService.allFiles
-                            .map(
-                              (f) => DropdownMenuItem(
-                                value: f,
-                                child: Text(f, overflow: TextOverflow.ellipsis),
-                              ),
-                            )
-                            .toList()
-                          ..add(
-                            DropdownMenuItem(
-                              value: trainingManualPdf,
-                              child: Text(
-                                trainingManualPdf,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                    onChanged: (v) {
-                      if (v != null) switchActiveFile(v);
-                    },
-                  ),
-                )
-              : Text(_activeFileName),
-        ),
+        title: syncInProgress
+            ? Text('Loading ...')
+            : ValueListenableBuilder<List<String>>(
+                valueListenable: _pdfListUpdateNotifier,
+                builder: (context, allFiles, _) =>
+                    _listSyncerService.allFiles.isNotEmpty
+                    ? DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _activeFileName,
+                          isExpanded: true,
+                          items:
+                              _listSyncerService.allFiles
+                                  .map(
+                                    (f) => DropdownMenuItem(
+                                      value: f,
+                                      child: Text(
+                                        toTitle(f),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  )
+                                  .toList()
+                                ..add(
+                                  DropdownMenuItem(
+                                    value: trainingManualPdf,
+                                    child: Text(
+                                      toTitle(trainingManualPdf),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                          onChanged: (v) {
+                            if (v != null) switchActiveFile(v);
+                          },
+                        ),
+                      )
+                    : Text(toTitle(_activeFileName)),
+              ),
         leading: IconButton(
           icon: Icon(_isTocVisible ? Icons.menu_open : Icons.menu),
           onPressed: () async {
@@ -177,33 +203,23 @@ class _PdfViewerPageState extends State<PdfViewerPage>
             setState(() => _isTocVisible = !_isTocVisible);
           },
         ),
-        actions: [
-          if (isCheckingNetwork)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
+        actions: buildResponsiveActions(
+          context,
           IconButton(
             icon: Icon(syncInProgress ? Icons.sync_lock : Icons.sync),
             onPressed: syncInProgress ? null : () => syncData(force: true),
             tooltip: 'Sync document',
           ),
-          IconButton(
-            icon: const Icon(Icons.upload),
-            tooltip: 'Upload New Version of Current Document',
-            onPressed: () async => pickLocalDocument(),
-          ),
-          IconButton(
-            icon: Icon(Icons.add_circle),
-            tooltip: 'Add a new file',
-            onPressed: addNewFile,
-          ),
-          ...getAppBarCommonActions(widget.configManager),
-        ],
+          [
+            ItemData(
+              Icons.upload,
+              'Upload New Version of Current Document',
+              () async => pickLocalDocument(),
+            ),
+            ItemData(Icons.add_circle, 'Add a new file', addNewFile),
+          ],
+          getAppBarCommonActions(widget.configManager),
+        ),
       ),
       body: Row(
         children: [
@@ -430,6 +446,14 @@ class _PdfViewerPageState extends State<PdfViewerPage>
       allowedExtensions: ['pdf'],
     );
     if (picked == null || picked.path == null) return;
+
+    final file = File(picked.path!);
+    final bytes = await file.length();
+
+    if (bytes > pdfSizeLimit) {
+      showSnackBar('File size exceeds $pdfSizeLimitText limit');
+      return;
+    }
 
     final name = await _promptFileName(picked.name);
     if (name == null) return;

@@ -5,6 +5,7 @@
  */
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_common/app_logger.dart';
 import 'package:uuid/uuid.dart';
 
@@ -90,4 +91,68 @@ String timeAgo(DateTime date) {
 
   final years = (diff.inDays / 365).floor();
   return '$years year${years == 1 ? '' : 's'} ago';
+}
+
+class ItemData {
+  IconData icon;
+  String text;
+  VoidCallback onPressed;
+
+  ItemData(this.icon, this.text, this.onPressed);
+}
+
+List<Widget> buildResponsiveActions(
+  BuildContext context,
+  IconButton primary,
+  List<ItemData> otherItems,
+  List<Widget> commonActions,
+) {
+  if (MediaQuery.of(context).size.width >= 650) {
+    return [
+      primary,
+      ...otherItems.map(
+        (item) => IconButton(
+          onPressed: item.onPressed,
+          icon: Icon(item.icon),
+          tooltip: item.text,
+        ),
+      ),
+      ...commonActions,
+    ];
+  } else {
+    return [
+      primary,
+      PopupMenuButton(
+        icon: Icon(Icons.more_vert),
+        itemBuilder: (context) => <PopupMenuEntry>[
+          ...otherItems.map(
+            (item) => PopupMenuItem(
+              onTap: item.onPressed,
+              child: Row(
+                children: [
+                  Icon(item.icon),
+                  SizedBox(width: 12),
+                  Expanded(child: Text(item.text)),
+                ],
+              ),
+            ),
+          ),
+          PopupMenuDivider(),
+          ...commonActions.map((w) {
+            final btn = w as IconButton;
+            return PopupMenuItem(
+              onTap: btn.onPressed,
+              child: Row(
+                children: [
+                  btn.icon,
+                  SizedBox(width: 12),
+                  Text(btn.tooltip ?? ''),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    ];
+  }
 }

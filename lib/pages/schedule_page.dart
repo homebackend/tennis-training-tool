@@ -261,18 +261,31 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
           physics: BouncingScrollPhysics(),
           child: Row(
             children: [
-              Text(
-                '${DateFormat('EEE d MMM').format(_currentDay)} (Week #${_getCurrentWeek(_currentDay)})',
-              ),
+              Text(DateFormat('EEE d MMM').format(_currentDay)),
               SizedBox(width: 15),
-              Text(
-                '[updated ${timeAgo(_scheduleLastEdited)}]',
-                style: TextStyle(fontSize: 14, color: Colors.blue.shade500),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children:
+                    [
+                          'Week #${_getCurrentWeek(_currentDay)}',
+                          'Updated: ${timeAgo(_scheduleLastEdited)}',
+                        ]
+                        .map(
+                          (text) => Text(
+                            text,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue.shade500,
+                            ),
+                          ),
+                        )
+                        .toList(),
               ),
             ],
           ),
         ),
-        actions: [
+        actions: buildResponsiveActions(
+          context,
           IconButton(
             icon: Icon(_syncInProgress ? Icons.sync_lock : Icons.sync),
             onPressed: _syncInProgress
@@ -280,10 +293,8 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
                 : () => _syncService.syncData(force: true),
             tooltip: 'Sync Latest Schedule',
           ),
-          IconButton(
-            icon: const Icon(Icons.edit_calendar_outlined),
-            tooltip: 'Edit Schedule',
-            onPressed: () {
+          [
+            ItemData(Icons.edit_calendar_outlined, 'Edit Schedule', () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -298,10 +309,10 @@ class _SchedulePageState extends State<SchedulePage> with PageCommon {
                   ),
                 ),
               );
-            },
-          ),
-          ...getAppBarCommonActions(widget.configManager),
-        ],
+            }),
+          ],
+          getAppBarCommonActions(widget.configManager),
+        ),
       ),
       body: dayItems.isEmpty
           ? const Center(

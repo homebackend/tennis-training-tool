@@ -27,7 +27,6 @@ mixin PdfLoaderService implements EncryptDecryptService, GitHubSyncer {
   StreamSubscription<void>? _pdfResyncSubscription;
 
   bool isLoading = true;
-  bool isCheckingNetwork = false;
   int lastSavedPage = 1;
   String? localDecryptedPath;
   bool syncInProgress = false;

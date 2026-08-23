@@ -80,6 +80,9 @@ class PdfListSyncerService
   String get localFileName => 'additional_files.lst';
 
   @override
+  bool get isReleaseFile => false;
+
+  @override
   void notifySyncDone() {}
 
   @override
